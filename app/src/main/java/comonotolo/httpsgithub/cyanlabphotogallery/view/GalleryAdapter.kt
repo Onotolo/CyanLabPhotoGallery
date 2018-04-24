@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import comonotolo.httpsgithub.cyanlabphotogallery.R
@@ -37,7 +38,8 @@ class GalleryAdapter(private val images: List<Bitmap?>,val  activity: MainActivi
 
     override fun onBindViewHolder(holder: ImageHolder, position: Int) {
 
-        ((holder.itemView as ImageView)).setImageBitmap(images[position])
+        holder.image.setImageBitmap(images[position])
+        if (MainActivity.mode != MainActivity.MODE_FAVORITES) holder.like.visibility = if (MainActivity.likeFlags[position]) View.VISIBLE else View.GONE
 
     }
 }
