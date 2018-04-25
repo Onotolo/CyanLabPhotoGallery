@@ -37,8 +37,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     override fun onTabUnselected(tab: TabLayout.Tab?) {
-        if (isLoading)
-            tab?.select()
+
     }
 
     companion object {
@@ -62,25 +61,24 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onTabSelected(tab: TabLayout.Tab?) {
 
-        if (!isLoading) {
-            val position = tab?.position
+        val position = tab?.position
 
-            mode = when (position){
-                0 -> MODE_RECENT
-                1 -> MODE_TOP
-                2 -> MODE_FAVORITES
-                else -> MODE_RECENT
-            }
-
-            images.removeAll(images)
-            imagesHrefs.removeAll(imagesHrefs)
-            likeFlags.removeAll(likeFlags)
-
-            when (position){
-                2 -> loadFavorites()
-                else -> loadImagesFromNet()
-            }
+        mode = when (position){
+            0 -> MODE_RECENT
+            1 -> MODE_TOP
+            2 -> MODE_FAVORITES
+            else -> MODE_RECENT
         }
+
+        images.removeAll(images)
+        imagesHrefs.removeAll(imagesHrefs)
+        likeFlags.removeAll(likeFlags)
+
+        when (position){
+            2 -> loadFavorites()
+            else -> loadImagesFromNet()
+        }
+
     }
 
     var nextHref: String? = null
@@ -273,8 +271,20 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
             REQUEST_CODE_SHOW -> {
                 if (resultCode == Activity.RESULT_OK){
-                    if (mode != MODE_FAVORITES) likeFlags[imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
-                    recycler?.adapter?.notifyItemChanged(imagePosition)
+                    if (mode != MODE_FAVORITES){
+
+                        likeFlags[imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
+
+                        recycler?.adapter?.notifyItemChanged(imagePosition)
+
+                    }
+                    else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
+
+                        images.removeAt(imagePosition)
+                        imagesHrefs.removeAt(imagePosition)
+
+                        recycler?.adapter?.notifyItemRemoved(imagePosition)
+                    }
                 }
             }
         }

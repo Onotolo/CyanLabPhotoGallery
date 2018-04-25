@@ -9,9 +9,7 @@ import android.os.Bundle
 import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v4.view.animation.LinearOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
-import android.view.GestureDetector
-import android.view.MotionEvent
-import android.view.View
+import android.view.*
 import android.widget.ImageView
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
@@ -86,70 +84,10 @@ class ImageActivity : AppCompatActivity() {
 
             if (!activity.isFavorite){
 
-                val href = activity.imageHref
-
-                val image = activity.image
-
-                if (href != null && image != null){
-
-                    val imageIndex = MainActivity.imagesHrefs.indexOf(href)
-
-                    val smallImage = MainActivity.images[imageIndex]
-
-                    thread {
-                        val out = BufferedOutputStream(activity.openFileOutput("${href.replace('/', '@')}.png", Context.MODE_PRIVATE))
-
-                        image.compress(Bitmap.CompressFormat.PNG, 100, out)
-                        out.flush()
-                        out.close()
-
-                        val outSmall = BufferedOutputStream(activity.openFileOutput("${href.replace('/', '@')}@small.png", Context.MODE_PRIVATE))
-
-                        smallImage?.compress(Bitmap.CompressFormat.PNG, 100, outSmall)
-                        outSmall.flush()
-                        outSmall.close()
-                    }
-
-                    activity.like.visibility = View.VISIBLE
-
-                    activity.like.scaleX = 0f
-                    activity.like.scaleY = 0f
-
-                    activity.like.alpha = 0f
-
-                    activity.like.animate()
-                            .alpha(1f)
-                            .scaleX(1f).scaleY(1f)
-                            .setInterpolator(FastOutSlowInInterpolator())
-                            .setDuration(225)
-                            .setListener(LikeAnimationListener(activity))
-                            .start()
-
-
-                    activity.isFavorite = true
-                }
+                activity.downloadLiked()
             }
 
             return super.onDoubleTap(e)
-        }
-
-        class LikeAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
-            override fun onAnimationRepeat(p0: Animator?) {
-
-            }
-
-            override fun onAnimationEnd(p0: Animator?) {
-                activity.like.animate().alpha(0f).scaleX(0f).scaleY(0f).setInterpolator(LinearOutSlowInInterpolator()).setDuration(195).setStartDelay(225).start()
-            }
-
-            override fun onAnimationCancel(p0: Animator?) {
-
-            }
-
-            override fun onAnimationStart(p0: Animator?) {
-
-            }
-
         }
 
         override fun onFling(e1: MotionEvent?, e2: MotionEvent?, velocityX: Float, velocityY: Float): Boolean {
@@ -159,6 +97,82 @@ class ImageActivity : AppCompatActivity() {
         override fun onDown(e: MotionEvent?): Boolean {
             return super.onDown(e)
         }
+    }
+
+    fun downloadLiked(){
+        val href = imageHref
+
+        val image = image
+
+        if (href != null && image != null){
+
+            val imageIndex = MainActivity.imagesHrefs.indexOf(href)
+
+            val smallImage = MainActivity.images[imageIndex]
+
+            thread {
+                val out = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}.png", Context.MODE_PRIVATE))
+
+                image.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
+                out.close()
+
+                val outSmall = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}@small.png", Context.MODE_PRIVATE))
+
+                smallImage?.compress(Bitmap.CompressFormat.PNG, 100, outSmall)
+                outSmall.flush()
+                outSmall.close()
+            }
+
+            like.visibility = View.VISIBLE
+
+            like.scaleX = 0f
+            like.scaleY = 0f
+
+            like.alpha = 0f
+
+            like.animate()
+                    .alpha(1f)
+                    .scaleX(3f).scaleY(3f)
+                    .setInterpolator(FastOutSlowInInterpolator())
+                    .setDuration(225)
+                    .setListener(LikeAnimationListener(this))
+                    .start()
+
+
+            isFavorite = true
+
+            invalidateOptionsMenu()
+        }
+    }
+
+    fun dislike(){
+
+        isFavorite = false
+
+        deleteFile("${imageHref?.replace('/', '@')}.png")
+        deleteFile("${imageHref?.replace('/', '@')}@small.png")
+
+        invalidateOptionsMenu()
+    }
+
+    class LikeAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
+        override fun onAnimationRepeat(p0: Animator?) {
+
+        }
+
+        override fun onAnimationEnd(p0: Animator?) {
+            activity.like.animate().alpha(0f).scaleX(0f).scaleY(0f).setInterpolator(LinearOutSlowInInterpolator()).setDuration(195).setStartDelay(225).start()
+        }
+
+        override fun onAnimationCancel(p0: Animator?) {
+
+        }
+
+        override fun onAnimationStart(p0: Animator?) {
+
+        }
+
     }
 
     fun prepareToDie(){
@@ -171,6 +185,34 @@ class ImageActivity : AppCompatActivity() {
 
         finish()
 
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+
+        menu?.getItem(0)?.setIcon(if (isFavorite) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+
+        return super.onPrepareOptionsMenu(menu)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+
+        menuInflater.inflate(R.menu.activity_item_menu, menu)
+
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+
+        when (item?.itemId){
+            R.id.menu_item_like -> {
+                if (!isFavorite){
+                    downloadLiked()
+                }else
+                    dislike()
+            }
+        }
+
+        return super.onOptionsItemSelected(item)
     }
 
     override fun onBackPressed() {

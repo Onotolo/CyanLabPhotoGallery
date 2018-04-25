@@ -3,8 +3,8 @@
     xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/menu_item_download"
-        android:icon="@drawable/ic_file_download_24dp"
+        android:id="@+id/menu_item_like"
+        android:icon="@drawable/ic_favorite_border_white_36dp"
         android:title="Item"
         app:showAsAction="always" />
 </menu>
