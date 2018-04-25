@@ -28,7 +28,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, val  activity: Main
 
         val imageView = LayoutInflater.from(parent.context).inflate(R.layout.image_holder, parent, false)
 
-        imageView.layoutParams.height = width
+        imageView.layoutParams.height = (width * 3)/4
 
         return ImageHolder(activity, imageView)
     }
@@ -47,7 +47,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, val  activity: Main
             }
             else -> {
                 if (!favorites.contains("${imagesHrefs[position]?.replace('/', '@')}.png")) {
-                    Picasso.get().load("${imagesHrefs[position]}_L").centerCrop().resize(width, width).memoryPolicy(MemoryPolicy.NO_CACHE, MemoryPolicy.NO_STORE).into(holder.image)
+                    Picasso.get().load("${imagesHrefs[position]}_L").centerCrop().resize(width, (width * 3)/4).memoryPolicy(MemoryPolicy.NO_STORE).into(holder.image)
                 }else
                     Picasso.get().load(File("${activity.filesDir.absolutePath}/${imagesHrefs[position]?.replace('/','@')}@small.png")).into(holder.image)
             }
