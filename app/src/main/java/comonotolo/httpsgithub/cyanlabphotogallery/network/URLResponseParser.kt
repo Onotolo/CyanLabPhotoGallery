@@ -6,19 +6,30 @@ class URLResponseParser {
 
     private val TAG_ENTRY = "<entry>"
     private val TAG_CLOSE_ENTRY = "</entry>"
+
     private val TAG_CONTENT_SRC = "<content src=\""
+
     private val TAG_ORIG = "_orig"
+    private val TAG_S = "_S"
+    private val TAG_M = "_M"
+    private val TAG_L = "_L"
+    private val TAG_XL = "_XL"
+    private val TAG_XXL = "_XXL"
+    private val TAG_XXXL = "_XXXL"
+
+    private val SUFFIXES = arrayOf(TAG_ORIG, TAG_XXXL, TAG_XXL, TAG_XL, TAG_L, TAG_M, TAG_S)
+
     private val TAG_NEXT = "rel=\"next\""
     private val TAG_LINK_HREF = "<link href=\""
 
-    val FILTER_PUBLISHED = 0;   val TAG_PUBLISHED = "<published>"
-    val FILTER_UPDATED = 1;     val TAG_UPDATED = "<updated>"; val TAG_CLOSE_UPDATED = "</updated>"
-    val FILTER_EDITED = 2
-    val FILTER_CREATED = 3
+    val TAG_TITLE = "<title>"
+    val TAG_CLOSE_TITLE = "</title>"
 
     var nextHref: String? = null
 
     var isBottomReached = false
+
+    var imageNames = ArrayList<String?>()
 
     fun parseResponse(response: String?): ParsedResponse{
 
@@ -26,10 +37,12 @@ class URLResponseParser {
 
         var bufferString = response
 
-        val imagesHrefs = ArrayList<String>()
+        val imagesHrefs = ArrayList<String?>()
 
         if (response?.contains(TAG_NEXT) == true) {
+
             nextHref = getNextHref(response)
+
         }else{
 
             isBottomReached = true
@@ -39,10 +52,13 @@ class URLResponseParser {
 
             val entry = getEntry(bufferString)
 
-            entry?.let{
-                getImageHRefWithoutPostfix(it)?.let {
-                    imagesHrefs.add(it)
+            if (entry != null){
+                val href = getImageHRefWithoutPostfix(entry)
+                if (href != null){
+                    imagesHrefs.add(href)
+                    imageNames.add(getName(entry))
                 }
+
             }
 
             bufferString = bufferString.substring(bufferString.indexOf(TAG_CLOSE_ENTRY) + TAG_CLOSE_ENTRY.length)
@@ -51,12 +67,11 @@ class URLResponseParser {
 
         }
 
-        return ParsedResponse(imagesHrefs, nextHref, isBottomReached)
+        return ParsedResponse(imagesHrefs, imageNames, nextHref, isBottomReached)
 
     }
 
-    class ParsedResponse(val imagesHrefs: ArrayList<String>,val nextHref: String?, val isBottomReached: Boolean){
-    }
+    class ParsedResponse(val imagesHrefs: ArrayList<String?>, val imagesNames: ArrayList<String?>, val nextHref: String?, val isBottomReached: Boolean)
 
     fun getNextHref(response: String?): String?{
 
@@ -68,11 +83,12 @@ class URLResponseParser {
         )
     }
 
-    fun getTime(entry: String?, filter: Int = FILTER_UPDATED): String?{
-        return when (entry){
-            null -> null
-            else -> entry.substring(entry.indexOf(TAG_UPDATED) + TAG_UPDATED.length, entry.indexOf(TAG_CLOSE_UPDATED))
-        }
+    fun getName(entry: String?): String?{
+
+        return entry?.substring(
+                entry.indexOf(TAG_TITLE) + TAG_TITLE.length,
+                entry.indexOf(TAG_CLOSE_TITLE)
+        )
     }
 
 
@@ -84,7 +100,14 @@ class URLResponseParser {
             return null
 
         val bufferString = entry.substring(srcIndex + TAG_CONTENT_SRC.length)
-        val srcEndIndex = bufferString.indexOf(TAG_ORIG)
+        var srcEndIndex = -1
+
+        for (suffix in SUFFIXES){
+            if (bufferString.contains(suffix)){
+                srcEndIndex = bufferString.indexOf(suffix)
+                break
+            }
+        }
 
         return if (srcEndIndex != -1)
             bufferString.substring(0, srcEndIndex)

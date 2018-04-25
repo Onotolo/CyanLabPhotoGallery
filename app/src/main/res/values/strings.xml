@@ -10,8 +10,8 @@
     <string name="mode_top">top</string>
     <string name="mode_pod">podhistory</string>
     <string name="mode_favorites">favorites</string>
-    <string name="tab_item_recent">Новые</string>
-    <string name="tab_item_top">Популярные</string>
+    <string name="tab_item_recent">Новое</string>
+    <string name="tab_item_top">Популярное</string>
     <string name="tab_item_pod">Фото дня</string>
     <string name="tab_item_favorites">Избранное</string>
 </resources>

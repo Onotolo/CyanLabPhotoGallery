@@ -18,7 +18,7 @@ class ExampleUnitTest {
 
     @Test
     fun imagesTimeCorrect(){
-        assertEquals("http://api-fotki.yandex.ru/api/users/alekna/album/63988/photos/updated;2009-01-27T11:57:19Z,126744/", URLResponseParser().getNextHref("<feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:app=\"http://www.w3.org/2007/app\" xmlns:f=\"yandex:fotki\">\n" +
+        assertEquals("Каникулы в Германии", URLResponseParser().getName("<feed xmlns=\"http://www.w3.org/2005/Atom\" xmlns:app=\"http://www.w3.org/2007/app\" xmlns:f=\"yandex:fotki\">\n" +
                 "  <id>urn:yandex:fotki:alekna:album:63988:photos</id>\n" +
                 "  <author>\n" +
                 "    <name>alekna</name>\n" +

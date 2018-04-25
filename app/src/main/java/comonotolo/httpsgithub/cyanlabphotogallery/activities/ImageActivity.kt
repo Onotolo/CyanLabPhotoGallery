@@ -40,6 +40,9 @@ class ImageActivity : AppCompatActivity() {
 
         val favoritesHrefs = filesDir.list()
 
+        if (MainActivity.mode != MainActivity.MODE_FAVORITES)
+            supportActionBar?.title = MainActivity.imagesNames[MainActivity.imagePosition]
+
         if (!favoritesHrefs.contains("${imageHref?.replace('/', '@')}.png")) {
 
             val load = thread {
@@ -65,6 +68,8 @@ class ImageActivity : AppCompatActivity() {
             isFavorite  = true
 
         }
+
+        actionBar?.setHomeButtonEnabled(true)
 
         val detector = GestureDetector(this, OnDoubleClickListener(this))
 
@@ -106,9 +111,7 @@ class ImageActivity : AppCompatActivity() {
 
         if (href != null && image != null){
 
-            val imageIndex = MainActivity.imagesHrefs.indexOf(href)
-
-            val smallImage = MainActivity.images[imageIndex]
+            val smallImage = MainActivity.bitmapAtPosition
 
             thread {
                 val out = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}.png", Context.MODE_PRIVATE))
@@ -154,6 +157,8 @@ class ImageActivity : AppCompatActivity() {
         deleteFile("${imageHref?.replace('/', '@')}@small.png")
 
         invalidateOptionsMenu()
+
+        prepareToDie()
     }
 
     class LikeAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{

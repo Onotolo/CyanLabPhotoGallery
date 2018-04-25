@@ -28,6 +28,7 @@ import kotlinx.android.synthetic.main.app_bar_main.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
+import java.io.IOException
 import kotlin.concurrent.thread
 
 
@@ -42,7 +43,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     companion object {
 
-        val images = ArrayList<Bitmap?>()
+        val imagesNames = ArrayList<String?>()
         val imagesHrefs = ArrayList<String?>()
         val likeFlags = ArrayList<Boolean>()
 
@@ -53,6 +54,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val INTENT_EXTRA_IMAGE_HREF = "Image href"
 
         var imagePosition = 0
+        var bitmapAtPosition: Bitmap? = null
 
         var mode = MainActivity.MODE_RECENT
 
@@ -70,9 +72,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             else -> MODE_RECENT
         }
 
-        images.removeAll(images)
+        imagesNames.removeAll(imagesNames)
         imagesHrefs.removeAll(imagesHrefs)
         likeFlags.removeAll(likeFlags)
+        limit = 20
+
+        nextHref = null
+
+        recycler?.adapter?.notifyDataSetChanged()
 
         when (position){
             2 -> loadFavorites()
@@ -85,7 +92,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     var recycler: RecyclerView? = null
 
-    var limit = 21
+    var limit = 20
 
     var spanCount = 2
 
@@ -134,33 +141,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         var count = 0
 
-        val load = thread {
+        for (favorite in favoritesHrefs){
 
-            val size = Point()
-            windowManager.defaultDisplay.getSize(size)
+            if (favorite.endsWith("@small.png")) {
 
-            val width = size.x / 2
+                imagesHrefs.add(favorite.removeSuffix("@small.png"))
 
-            for (favorite in favoritesHrefs){
-
-                if (favorite.endsWith("@small.png")) {
-
-                    imagesHrefs.add(favorite.removeSuffix("@small.png"))
-
-                    images.add(Picasso.get()
-                            .load(File("${filesDir.absolutePath}/$favorite"))
-                            .resize(width, width)
-                            .centerCrop()
-                            .get())
-
-                    count++
-                }
+                count++
             }
         }
-
-        load.join()
-
-        while (images.size != count){}
 
         recycler?.adapter?.notifyDataSetChanged()
 
@@ -181,10 +170,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             thread (true){
 
                 if (url.equals(defaultURL())){
-
                     isBottomReached = false
-                    recycler?.scheduleLayoutAnimation()
-
                 }
 
                 val request = Request.Builder()
@@ -199,68 +185,58 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
                 val response = client.newCall(request).execute()
 
-                if (response.code() != 200) {
+                if (!response.isSuccessful) {
+
                     isLoading = false
 
                     return@thread
                 }
 
-                val parsedResponse = URLResponseParser().parseResponse(response.body()?.string())
+                val parsedResponse = try {
+
+                    URLResponseParser().parseResponse(response.body()?.string())
+
+                }catch (ex: IOException){
+                    isLoading = false
+
+                    return@thread
+                }
 
                 val newImagesHrefs = parsedResponse.imagesHrefs
+
+                imagesNames.addAll(parsedResponse.imagesNames)
 
                 isBottomReached = parsedResponse.isBottomReached
 
                 nextHref = parsedResponse.nextHref
 
-                imagesHrefs.addAll(newImagesHrefs)
-
-                if (newImagesHrefs.size > 0){
-
-                    val size = Point()
-                    windowManager.defaultDisplay.getSize(size)
-
-                    val width = size.x / 2
-
-                    for (nameIndex in newImagesHrefs.indices){
-                        images.add(Picasso.get()
-                                .load(newImagesHrefs[nameIndex] + "_L")
-                                .resize(width, width)
-                                .centerCrop()
-                                .get())
-                    }
-
-                }else{
-
-                    isBottomReached = true
-
-                }
-
                 fillLikeFlags(newImagesHrefs)
-
-                while (images.size != imagesHrefs.size){}
 
                 runOnUiThread {
 
                     isLoading = false
 
-                    if (imagesHrefs.size < 21)
-                        recycler?.scheduleLayoutAnimation()
+                    val oldPosition = imagesHrefs.size
 
-                    recycler?.adapter?.notifyDataSetChanged()
+                    imagesHrefs.addAll(newImagesHrefs)
+
+                    if (!isBottomReached && limit == 20)
+                        limit = 6
+
+                    recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
 
                 }
             }
         }
     }
 
-    fun fillLikeFlags(newHrefs: ArrayList<String>){
+    fun fillLikeFlags(newHrefs: ArrayList<String?>){
 
         val favorites = filesDir.list()
 
         for (href in newHrefs){
 
-            likeFlags.add(favorites.contains("${href.replace('/', '@')}.png"))
+            likeFlags.add(favorites.contains("${href?.replace('/', '@')}.png"))
 
         }
     }
@@ -280,7 +256,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     }
                     else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
 
-                        images.removeAt(imagePosition)
                         imagesHrefs.removeAt(imagePosition)
 
                         recycler?.adapter?.notifyItemRemoved(imagePosition)
@@ -299,36 +274,28 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         recycler?.layoutManager = GridLayoutManager(this, 2)
 
-        recycler?.adapter = GalleryAdapter(images, this)
+        recycler?.adapter = GalleryAdapter(imagesHrefs, this)
 
-        recycler?.setRecyclerListener{
-
-            val manager = recycler?.layoutManager as GridLayoutManager
-
-            if (!isLoading && !isBottomReached){
-
-                val ic = manager.itemCount
-
-                val flv = manager.findLastVisibleItemPosition()
-
-                if (ic  - flv < 7 && ic == imagesHrefs.size){
-
-                    val nextHref = nextHref
-                    loadImagesFromNet(nextHref)
-
-                }
-            }
-
-        }
-
-        //recycler?.addOnChildAttachStateChangeListener(OnChildStateChangedLoader(recycler?.layoutManager as GridLayoutManager, this))
+        recycler?.addOnChildAttachStateChangeListener(OnChildStateChangedLoader(recycler?.layoutManager as GridLayoutManager, this))
     }
 
     class OnChildStateChangedLoader(val manager: GridLayoutManager, val activity: MainActivity): RecyclerView.OnChildAttachStateChangeListener{
 
         override fun onChildViewDetachedFromWindow(view: View?) {
 
+            if (!activity.isLoading && !activity.isBottomReached){
 
+                val ic = manager.itemCount
+
+                val flv = manager.findLastVisibleItemPosition()
+
+                if (ic  - flv < 7){
+
+                    val nextHref = activity.nextHref
+                    activity.loadImagesFromNet(nextHref?.replace("limit=20", "limit=${activity.limit}"))
+
+                }
+            }
 
         }
 
