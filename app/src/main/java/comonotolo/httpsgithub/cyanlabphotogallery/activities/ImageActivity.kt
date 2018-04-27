@@ -8,7 +8,6 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.support.constraint.ConstraintLayout
-import android.support.design.widget.CoordinatorLayout
 import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v4.view.animation.LinearOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
@@ -17,7 +16,8 @@ import android.widget.ImageView
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
 import kotlinx.android.synthetic.main.activity_image.*
-import java.io.*
+import java.io.BufferedOutputStream
+import java.io.File
 import kotlin.concurrent.thread
 
 class ImageActivity : AppCompatActivity(), View.OnClickListener {
@@ -51,10 +51,9 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
         val favoritesHrefs = filesDir.list()
 
-        if (MainActivity.mode != MainActivity.MODE_FAVORITES)
-            supportActionBar?.title = MainActivity.imagesNames[MainActivity.imagePosition]
+        supportActionBar?.title = MainActivity.imageName
 
-        if (!favoritesHrefs.contains("${imageHref?.replace('/', '@')}.png")) {
+        if (!favoritesHrefs.contains("${supportActionBar?.title}.png")) {
 
             Picasso.get().load( "${imageHref}_XXL" ).into(imageView)
 
@@ -62,13 +61,13 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
         }else {
 
-            Picasso.get().load( File("${filesDir.absolutePath}/${imageHref?.replace('/', '@')}.png")).into(imageView)
+            Picasso.get().load(File("${filesDir.absolutePath}/${MainActivity.imageName}.png")).into(imageView)
 
             isFavorite  = true
 
         }
 
-        actionBar?.setHomeButtonEnabled(true)
+        supportActionBar?.setHomeButtonEnabled(true)
 
         val detector = GestureDetector(this, OnDoubleClickListener(this))
 
@@ -132,22 +131,22 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
     }
 
     fun downloadLiked(){
-        val href = imageHref
+        val name = supportActionBar?.title
 
         val image = (image_place.drawable as BitmapDrawable).bitmap
 
-        if (href != null && image != null){
+        if (name != null && image != null) {
 
             val smallImage = MainActivity.bitmapAtPosition
 
             thread {
-                val out = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}.png", Context.MODE_PRIVATE))
+                val out = BufferedOutputStream(openFileOutput("$name.png", Context.MODE_PRIVATE))
 
                 image.compress(Bitmap.CompressFormat.PNG, 100, out)
                 out.flush()
                 out.close()
 
-                val outSmall = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}@small.png", Context.MODE_PRIVATE))
+                val outSmall = BufferedOutputStream(openFileOutput("${name}_small.png", Context.MODE_PRIVATE))
 
                 smallImage?.compress(Bitmap.CompressFormat.PNG, 100, outSmall)
                 outSmall.flush()
@@ -189,8 +188,8 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
         animateLike(false)
 
         thread {
-            deleteFile("${imageHref?.replace('/', '@')}.png")
-            deleteFile("${imageHref?.replace('/', '@')}@small.png")
+            deleteFile("${supportActionBar?.title}.png")
+            deleteFile("${supportActionBar?.title}_small.png")
         }
 
         invalidateOptionsMenu()
@@ -236,14 +235,14 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
 
-        menu?.getItem(0)?.setIcon(if (isFavorite) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+        menu?.getItem(1)?.setIcon(if (isFavorite) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
 
         return super.onPrepareOptionsMenu(menu)
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
 
-        menuInflater.inflate(R.menu.activity_item_menu, menu)
+        menuInflater.inflate(R.menu.activity_image_menu, menu)
 
         return super.onCreateOptionsMenu(menu)
     }

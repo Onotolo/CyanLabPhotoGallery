@@ -1,51 +1,34 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.activities
 
+import android.animation.Animator
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.Point
-import android.net.ConnectivityManager
-import android.net.Network
 import android.os.Bundle
-import android.support.design.widget.NavigationView
-import android.support.design.widget.Snackbar
 import android.support.design.widget.TabLayout
-import android.support.v4.view.GravityCompat
-import android.support.v7.app.ActionBarDrawerToggle
+import android.support.v4.app.Fragment
+import android.support.v4.app.FragmentManager
+import android.support.v4.app.FragmentPagerAdapter
+import android.support.v4.view.ViewPager
+import android.support.v4.view.animation.FastOutLinearInInterpolator
+import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.GridLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import com.squareup.picasso.Picasso
+import android.view.ViewPropertyAnimator
 import comonotolo.httpsgithub.cyanlabphotogallery.R
-import comonotolo.httpsgithub.cyanlabphotogallery.network.URLResponseParser
-import comonotolo.httpsgithub.cyanlabphotogallery.view.GalleryAdapter
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.FavoriteFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.RecentFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.TopFragment
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.app_bar_main.*
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.io.IOException
-import kotlin.concurrent.thread
 
 
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener, TabLayout.OnTabSelectedListener {
-
-    override fun onTabReselected(tab: TabLayout.Tab?) {
-    }
-
-    override fun onTabUnselected(tab: TabLayout.Tab?) {
-
-    }
+class MainActivity : AppCompatActivity() {
 
     companion object {
-
-        val imagesNames = ArrayList<String?>()
-        val imagesHrefs = ArrayList<String?>()
-        val likeFlags = ArrayList<Boolean>()
 
         val MODE_RECENT = R.string.mode_recent
         val MODE_TOP = R.string.mode_top
@@ -53,248 +36,180 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         val INTENT_EXTRA_IMAGE_HREF = "Image href"
 
-        var imagePosition = 0
-        var bitmapAtPosition: Bitmap? = null
-
         var mode = MainActivity.MODE_RECENT
 
         val REQUEST_CODE_SHOW = 1
-    }
 
-    override fun onTabSelected(tab: TabLayout.Tab?) {
-
-        val position = tab?.position
-
-        mode = when (position){
-            0 -> MODE_RECENT
-            1 -> MODE_TOP
-            2 -> MODE_FAVORITES
-            else -> MODE_RECENT
-        }
-
-        imagesNames.removeAll(imagesNames)
-        imagesHrefs.removeAll(imagesHrefs)
-        likeFlags.removeAll(likeFlags)
-        limit = 20
-
-        nextHref = null
-
-        recycler?.adapter?.notifyDataSetChanged()
-
-        when (position){
-            2 -> loadFavorites()
-            else -> loadImagesFromNet()
-        }
+        var imagePosition = 0
+        var imageName: String? = null
+        var bitmapAtPosition: Bitmap? = null
 
     }
 
-    var nextHref: String? = null
+    val tabListener = TabListener()
 
-    var recycler: RecyclerView? = null
+    val pageListener = PageListener()
 
-    var limit = 20
-
-    var spanCount = 2
-
-    fun defaultURL() =
-            "http://api-fotki.yandex.ru/api/${resources.getString(mode)}/?limit=$limit"
-
-    var isLoading = false
-    var isBottomReached = false
+    val recentFragment = RecentFragment()
+    val topFragment = TopFragment()
+    val favoriteFragment = FavoriteFragment()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
-        }
-
-        val toggle = ActionBarDrawerToggle(
-                this, drawer_layout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
-        drawer_layout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        nav_view.setNavigationItemSelectedListener(this)
-
         val tabLayout = findViewById<TabLayout>(R.id.tab_layout)
 
-        tabLayout.addOnTabSelectedListener(this)
+        tabLayout.addOnTabSelectedListener(tabListener)
 
-        prepareRecycler()
+        view_pager.setOnPageChangeListener(pageListener)
 
-        recycler?.scheduleLayoutAnimation()
-
-        loadImagesFromNet()
+        view_pager.adapter = PagerAdapter(supportFragmentManager)
 
     }
 
-    fun loadFavorites(){
+    inner class PagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm) {
 
-        recycler?.scheduleLayoutAnimation()
+        override fun getItem(position: Int): Fragment {
 
-        isLoading = true
-
-        val favoritesHrefs = filesDir.list()
-
-        var count = 0
-
-        for (favorite in favoritesHrefs){
-
-            if (favorite.endsWith("@small.png")) {
-
-                imagesHrefs.add(favorite.removeSuffix("@small.png"))
-
-                count++
+            return when (position) {
+                0 -> recentFragment
+                1 -> topFragment
+                else -> favoriteFragment
             }
         }
 
-        recycler?.adapter?.notifyDataSetChanged()
-
+        override fun getCount(): Int {
+            return 3
+        }
 
     }
 
-    fun loadImagesFromNet(url: String? = defaultURL()){
+    inner class PageListener : ViewPager.SimpleOnPageChangeListener() {
 
-        val netInfo = (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo
-        if (netInfo != null && netInfo.isConnectedOrConnecting) {
+        override fun onPageSelected(position: Int) {
 
-            if (recycler?.layoutManager?.itemCount != imagesHrefs.size)
-                return
+            tab_layout.getTabAt(position)?.select()
 
-            isLoading = true
+        }
+    }
 
+    inner class TabListener : TabLayout.OnTabSelectedListener {
+        override fun onTabReselected(tab: TabLayout.Tab?) {
+        }
 
-            thread (true){
+        override fun onTabUnselected(tab: TabLayout.Tab?) {
+        }
 
-                if (url.equals(defaultURL())){
-                    isBottomReached = false
-                }
+        override fun onTabSelected(tab: TabLayout.Tab?) {
 
-                val request = Request.Builder()
-                        .get()
-                        .addHeader("Host", "api-fotki.yandex.ru")
-                        .addHeader("Connection", "keep-alive")
-                        .url(url ?: defaultURL())
-                        .tag("HTTP/1.1")
-                        .build()
+            view_pager.currentItem = tab?.position ?: 0
 
-                val client = OkHttpClient()
-
-                val response = client.newCall(request).execute()
-
-                if (!response.isSuccessful) {
-
-                    isLoading = false
-
-                    return@thread
-                }
-
-                val parsedResponse = try {
-
-                    URLResponseParser().parseResponse(response.body()?.string())
-
-                }catch (ex: IOException){
-                    isLoading = false
-
-                    return@thread
-                }
-
-                val newImagesHrefs = parsedResponse.imagesHrefs
-
-                imagesNames.addAll(parsedResponse.imagesNames)
-
-                isBottomReached = parsedResponse.isBottomReached
-
-                nextHref = parsedResponse.nextHref
-
-                fillLikeFlags(newImagesHrefs)
-
-                runOnUiThread {
-
-                    isLoading = false
-
-                    val oldPosition = imagesHrefs.size
-
-                    imagesHrefs.addAll(newImagesHrefs)
-
-                    if (!isBottomReached && limit == 20)
-                        limit = 6
-
-                    recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
-
-                }
+            mode = when (view_pager.currentItem) {
+                0 -> MODE_RECENT
+                1 -> MODE_TOP
+                else -> MODE_FAVORITES
             }
-        }
-    }
 
-    fun fillLikeFlags(newHrefs: ArrayList<String?>){
-
-        val favorites = filesDir.list()
-
-        for (href in newHrefs){
-
-            likeFlags.add(favorites.contains("${href?.replace('/', '@')}.png"))
-
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-
-        when (requestCode){
-
-            REQUEST_CODE_SHOW -> {
-                if (resultCode == Activity.RESULT_OK){
-                    if (mode != MODE_FAVORITES){
-
-                        likeFlags[imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
-
-                        recycler?.adapter?.notifyItemChanged(imagePosition)
-
-                    }
-                    else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
-
-                        imagesHrefs.removeAt(imagePosition)
-
-                        recycler?.adapter?.notifyItemRemoved(imagePosition)
-                    }
-                }
+            val fragment = when (mode) {
+                MODE_TOP -> topFragment
+                MODE_RECENT -> recentFragment
+                else -> favoriteFragment
             }
+
+            val fvp = (fragment.recycler?.layoutManager as GridLayoutManager).findFirstCompletelyVisibleItemPosition()
+
+            if (fab_up?.visibility == View.VISIBLE && fvp < 4) {
+
+                animateFabVisibility(View.GONE)
+
+            } else if (fab_up?.visibility == View.GONE && fvp > 7) {
+
+                animateFabVisibility(View.VISIBLE)
+
+            }
+
+            fab_up?.setOnClickListener {
+                fragment.recycler?.scrollToPosition(0)
+            }
+
         }
 
-        super.onActivityResult(requestCode, resultCode, data)
     }
 
+    var isFabAnimated = false
 
-    fun prepareRecycler(){
+    fun animateFabVisibility(visibility: Int) {
 
-        recycler = findViewById(R.id.recycler_view)
+        if (!isFabAnimated) {
+            var animation: ViewPropertyAnimator? = null
 
-        recycler?.layoutManager = GridLayoutManager(this, 2)
+            if (visibility == View.VISIBLE) {
 
-        recycler?.adapter = GalleryAdapter(imagesHrefs, this)
+                fab_up.alpha = 0f
+                fab_up.translationY = 3 * fab_up.height.toFloat()
 
-        recycler?.addOnChildAttachStateChangeListener(OnChildStateChangedLoader(recycler?.layoutManager as GridLayoutManager, this))
+                fab_up.visibility = View.VISIBLE
+
+                animation = fab_up.animate()
+                        .alpha(1f)
+                        .translationY(0f)
+
+                        .setDuration(225)
+                        .setInterpolator(FastOutSlowInInterpolator())
+
+            } else {
+
+                animation = fab_up.animate()
+
+                        .alpha(0f)
+                        .translationY(3 * fab_up.height.toFloat())
+
+                        .setDuration(195)
+                        .setInterpolator(FastOutLinearInInterpolator())
+
+            }
+
+            animation?.setListener(
+
+                    object : Animator.AnimatorListener {
+
+                        override fun onAnimationRepeat(p0: Animator?) {}
+
+                        override fun onAnimationEnd(p0: Animator?) {
+
+                            if (visibility == View.GONE)
+                                fab_up.visibility = View.GONE
+
+                            fab_up.animate().setListener(null).start()
+
+                            isFabAnimated = false
+                        }
+
+                        override fun onAnimationCancel(p0: Animator?) {}
+
+                        override fun onAnimationStart(p0: Animator?) {
+                            isFabAnimated = true
+                        }
+
+                    })?.start()
+        }
     }
 
-    class OnChildStateChangedLoader(val manager: GridLayoutManager, val activity: MainActivity): RecyclerView.OnChildAttachStateChangeListener{
+    inner class OnChildStateChangedLoader(val manager: GridLayoutManager) : RecyclerView.OnChildAttachStateChangeListener {
 
         override fun onChildViewDetachedFromWindow(view: View?) {
 
-            if (!activity.isLoading && !activity.isBottomReached){
+            val flv = manager.findFirstCompletelyVisibleItemPosition()
 
-                val ic = manager.itemCount
+            if (fab_up.visibility != View.VISIBLE && flv > 7) {
 
-                val flv = manager.findLastVisibleItemPosition()
+                animateFabVisibility(View.VISIBLE)
 
-                if (ic  - flv < 7){
+            } else if (flv < 4) {
 
-                    val nextHref = activity.nextHref
-                    activity.loadImagesFromNet(nextHref?.replace("limit=20", "limit=${activity.limit}"))
-
-                }
+                animateFabVisibility(View.GONE)
             }
 
         }
@@ -304,12 +219,50 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     }
 
-    override fun onBackPressed() {
-        if (drawer_layout.isDrawerOpen(GravityCompat.START)) {
-            drawer_layout.closeDrawer(GravityCompat.START)
-        } else {
-            super.onBackPressed()
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+
+        when (requestCode){
+
+            MainActivity.REQUEST_CODE_SHOW -> {
+                if (resultCode == Activity.RESULT_OK){
+
+                    val fragment = when (mode) {
+                        MODE_TOP -> topFragment
+                        MODE_RECENT -> recentFragment
+                        else -> favoriteFragment
+                    }
+
+                    if (MainActivity.mode != MainActivity.MODE_FAVORITES) {
+
+                        fragment.likeFlags[MainActivity.imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
+
+                        fragment.recycler?.adapter?.notifyItemChanged(MainActivity.imagePosition)
+
+                        if (fragment.likeFlags[imagePosition]) {
+
+                            favoriteFragment.imagesNames.add(imageName)
+                            favoriteFragment.recycler?.adapter?.notifyItemInserted(favoriteFragment.imagesNames.lastIndex)
+
+                        } else if (favoriteFragment.imagesNames.contains(imageName)) {
+
+                            val index = favoriteFragment.imagesNames.indexOf(imageName)
+
+                            favoriteFragment.imagesNames.remove(imageName)
+                            favoriteFragment.recycler?.adapter?.notifyItemRemoved(index)
+                        }
+
+                    }
+                    else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
+
+                        fragment.imagesNames.removeAt(MainActivity.imagePosition)
+
+                        fragment.recycler?.adapter?.notifyItemRemoved(MainActivity.imagePosition)
+                    }
+                }
+            }
         }
+
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -326,33 +279,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             R.id.action_settings -> return true
             else -> return super.onOptionsItemSelected(item)
         }
-    }
-
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        // Handle navigation view item clicks here.
-        when (item.itemId) {
-            R.id.nav_camera -> {
-                // Handle the camera action
-            }
-            R.id.nav_gallery -> {
-
-            }
-            R.id.nav_slideshow -> {
-
-            }
-            R.id.nav_manage -> {
-
-            }
-            R.id.nav_share -> {
-
-            }
-            R.id.nav_send -> {
-
-            }
-        }
-
-        drawer_layout.closeDrawer(GravityCompat.START)
-        return true
     }
 
 }

@@ -6,9 +6,11 @@ import android.support.v7.widget.RecyclerView
 import android.view.View
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.ImageActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.FavoriteFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.ImagesFragment
 import kotlinx.android.synthetic.main.image_holder.view.*
 
-class ImageHolder(val activity: MainActivity, imageView: View): RecyclerView.ViewHolder(imageView), View.OnClickListener{
+class ImageHolder(val fragment: ImagesFragment, imageView: View) : RecyclerView.ViewHolder(imageView), View.OnClickListener {
 
     val image = imageView.holder_image
     val like = imageView.holder_like
@@ -19,9 +21,12 @@ class ImageHolder(val activity: MainActivity, imageView: View): RecyclerView.Vie
 
     override fun onClick(p0: View?) {
 
-        val href = MainActivity.Companion.imagesHrefs[adapterPosition]
+        val href = when (fragment) {
+            is FavoriteFragment -> fragment.imagesNames[adapterPosition]
+            else -> fragment.imagesHrefs[adapterPosition]
+        }
 
-        val data = Intent(activity, ImageActivity::class.java)
+        val data = Intent(fragment.activity, ImageActivity::class.java)
 
         data.putExtra(MainActivity.INTENT_EXTRA_IMAGE_HREF, href)
 
@@ -31,6 +36,8 @@ class ImageHolder(val activity: MainActivity, imageView: View): RecyclerView.Vie
 
         MainActivity.bitmapAtPosition = imageBMP
 
-        activity.startActivityForResult(data, MainActivity.REQUEST_CODE_SHOW)
+        MainActivity.imageName = fragment.imagesNames[adapterPosition]
+
+        fragment.activity?.startActivityForResult(data, MainActivity.REQUEST_CODE_SHOW)
     }
 }
