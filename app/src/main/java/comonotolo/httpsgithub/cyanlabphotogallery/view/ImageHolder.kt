@@ -1,7 +1,6 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.view
 
 import android.content.Intent
-import android.graphics.drawable.BitmapDrawable
 import android.support.v7.widget.RecyclerView
 import android.view.View
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.ImageActivity
@@ -28,15 +27,9 @@ class ImageHolder(val fragment: ImagesFragment, imageView: View) : RecyclerView.
 
         val data = Intent(fragment.activity, ImageActivity::class.java)
 
-        data.putExtra(MainActivity.INTENT_EXTRA_IMAGE_HREF, href)
-
-        MainActivity.imagePosition = adapterPosition
-
-        val imageBMP = (image.drawable as BitmapDrawable).bitmap
-
-        MainActivity.bitmapAtPosition = imageBMP
-
-        MainActivity.imageName = fragment.imagesNames[adapterPosition]
+        data.putExtra(MainActivity.INTENT_EXTRA_POSITION, adapterPosition)
+                .putExtra(MainActivity.INTENT_EXTRA_IMAGE_NAME, fragment.imagesNames[adapterPosition])
+                .putExtra(MainActivity.INTENT_EXTRA_IMAGE_HREF, href)
 
         fragment.activity?.startActivityForResult(data, MainActivity.REQUEST_CODE_SHOW)
     }

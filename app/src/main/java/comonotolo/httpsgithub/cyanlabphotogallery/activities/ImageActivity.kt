@@ -7,26 +7,22 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
-import android.support.constraint.ConstraintLayout
 import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v4.view.animation.LinearOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
 import android.view.*
 import android.widget.ImageView
+import com.squareup.picasso.Callback
+import com.squareup.picasso.MemoryPolicy
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
 import kotlinx.android.synthetic.main.activity_image.*
 import java.io.BufferedOutputStream
 import java.io.File
+import java.lang.Exception
 import kotlin.concurrent.thread
 
-class ImageActivity : AppCompatActivity(), View.OnClickListener {
-
-    override fun onClick(p0: View?) {
-        if (p0?.id == R.id.parent){
-            prepareToDie()
-        }
-    }
+class ImageActivity : AppCompatActivity() {
 
     companion object {
         val INTENT_EXTRA_IS_FAVORITE = "is Favorite"
@@ -36,40 +32,55 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
     var isFavorite = false
 
-    var image: Bitmap? = null
+    var imageName: String? = null
+
+    var imagePosition = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_image)
 
         imageHref = intent.getStringExtra(MainActivity.INTENT_EXTRA_IMAGE_HREF)
+        imageName = intent.getStringExtra(MainActivity.INTENT_EXTRA_IMAGE_NAME)
+        imagePosition = intent.getIntExtra(MainActivity.INTENT_EXTRA_POSITION, -1)
 
         val imageView = findViewById<ImageView>(R.id.image_place)
 
-        findViewById<ConstraintLayout>(R.id.parent).setOnClickListener(this)
+        supportActionBar?.title = imageName
 
-        val favoritesHrefs = filesDir.list()
+        val favorites = filesDir.list()
 
-        supportActionBar?.title = MainActivity.imageName
+        val callback = object : Callback {
 
-        if (!favoritesHrefs.contains("${supportActionBar?.title}.png")) {
+            override fun onSuccess() {
+                progressBar.visibility = View.GONE
+            }
 
-            Picasso.get().load( "${imageHref}_XXL" ).into(imageView)
+            override fun onError(e: Exception?) {
 
-            isFavorite = false
+            }
+
+        }
+
+        isFavorite = if (!favorites.contains("${imageName?.replace('.', '@')}.png")) {
+
+            Picasso.get().load("${imageHref}_XXL").memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE).into(imageView, callback)
+
+            false
 
         }else {
 
-            Picasso.get().load(File("${filesDir.absolutePath}/${MainActivity.imageName}.png")).into(imageView)
+            Picasso.get().load(File("${filesDir.absolutePath}/${imageName?.replace('.', '@')}.png")).into(imageView, callback)
 
-            isFavorite  = true
+            true
 
         }
 
         supportActionBar?.setHomeButtonEnabled(true)
 
-        val detector = GestureDetector(this, OnDoubleClickListener(this))
+        val detector = GestureDetector(this, OnDoubleClickListener())
 
         imageView.setOnTouchListener { view, motionEvent ->
 
@@ -80,16 +91,11 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
     }
 
-    class OnDoubleClickListener(val activity: ImageActivity): GestureDetector.SimpleOnGestureListener(){
+    inner class OnDoubleClickListener() : GestureDetector.SimpleOnGestureListener() {
 
         override fun onDoubleTap(e: MotionEvent?): Boolean {
 
-            if (!activity.isFavorite){
-
-                activity.downloadLiked()
-            } else{
-                activity.dislike()
-            }
+            animateLike(!isFavorite)
 
             return super.onDoubleTap(e)
         }
@@ -101,7 +107,7 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
             if (y2 != null && y1 != null && y1 - y2 > 100){
 
-                activity.image_place.animate().translationY(-1000f).setDuration(195).alpha(0.2f).setListener(RemoveAnimationListener(activity)).start()
+                image_place.animate().translationY(-1000f).setDuration(195).alpha(0f).setListener(RemoveAnimationListener()).start()
 
             }
 
@@ -112,56 +118,25 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
     }
 
-    class RemoveAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
-        override fun onAnimationRepeat(p0: Animator?) {
-        }
+    inner class RemoveAnimationListener() : Animator.AnimatorListener {
 
         override fun onAnimationEnd(p0: Animator?) {
-            activity.prepareToDie()
+            prepareToDie()
         }
 
-        override fun onAnimationCancel(p0: Animator?) {
+        override fun onAnimationRepeat(p0: Animator?) {}
 
-        }
+        override fun onAnimationCancel(p0: Animator?) {}
 
-        override fun onAnimationStart(p0: Animator?) {
-
-        }
+        override fun onAnimationStart(p0: Animator?) {}
 
     }
 
-    fun downloadLiked(){
-        val name = supportActionBar?.title
+    fun animateLike(isLiked: Boolean?) {
 
-        val image = (image_place.drawable as BitmapDrawable).bitmap
+        isFavorite = isLiked == true
 
-        if (name != null && image != null) {
-
-            val smallImage = MainActivity.bitmapAtPosition
-
-            thread {
-                val out = BufferedOutputStream(openFileOutput("$name.png", Context.MODE_PRIVATE))
-
-                image.compress(Bitmap.CompressFormat.PNG, 100, out)
-                out.flush()
-                out.close()
-
-                val outSmall = BufferedOutputStream(openFileOutput("${name}_small.png", Context.MODE_PRIVATE))
-
-                smallImage?.compress(Bitmap.CompressFormat.PNG, 100, outSmall)
-                outSmall.flush()
-                outSmall.close()
-            }
-
-            animateLike(true)
-
-            isFavorite = true
-
-            invalidateOptionsMenu()
-        }
-    }
-
-    fun animateLike(isLiked: Boolean?){
+        invalidateOptionsMenu()
 
         like.setImageResource( if (isLiked == true) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
 
@@ -174,35 +149,18 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
         like.animate()
                 .alpha(1f)
-                .scaleX(3f).scaleY(3f)
+                .scaleX(2f).scaleY(2f)
                 .setInterpolator(FastOutSlowInInterpolator())
                 .setDuration(225)
-                .setListener(LikeAnimationListener(this))
+                .setListener(LikeAnimationListener())
                 .start()
     }
 
-    fun dislike(){
-
-        isFavorite = false
-
-        animateLike(false)
-
-        thread {
-            deleteFile("${supportActionBar?.title}.png")
-            deleteFile("${supportActionBar?.title}_small.png")
-        }
-
-        invalidateOptionsMenu()
-
-    }
-
-    class LikeAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
-        override fun onAnimationRepeat(p0: Animator?) {
-
-        }
+    inner class LikeAnimationListener() : Animator.AnimatorListener {
+        override fun onAnimationRepeat(p0: Animator?) {}
 
         override fun onAnimationEnd(p0: Animator?) {
-            activity.like.animate()
+            like.animate()
                     .alpha(0f)
                     .scaleX(0f).scaleY(0f)
                     .setInterpolator(LinearOutSlowInInterpolator())
@@ -211,21 +169,45 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
                     .start()
         }
 
-        override fun onAnimationCancel(p0: Animator?) {
+        override fun onAnimationCancel(p0: Animator?) {}
 
-        }
-
-        override fun onAnimationStart(p0: Animator?) {
-
-        }
+        override fun onAnimationStart(p0: Animator?) {}
 
     }
 
     fun prepareToDie(){
 
+        val favorites = filesDir.list()
+
+        val name = imageName?.replace('.', '@')
+
+        if (!isFavorite && favorites.contains("$name.png")) {
+            thread {
+                deleteFile("$name.png")
+            }
+        } else if (isFavorite && !favorites.contains("$name.png") && image_place.drawable != null) {
+
+            thread {
+
+                val image = (image_place.drawable as BitmapDrawable).bitmap
+
+                val out = BufferedOutputStream(openFileOutput("$name.png", Context.MODE_PRIVATE))
+
+                image.compress(Bitmap.CompressFormat.PNG, 100, out)
+                out.flush()
+                out.close()
+
+            }
+        }
+
+        if (image_place.drawable == null)
+            isFavorite = false
+
         val data = Intent()
 
         data.putExtra(INTENT_EXTRA_IS_FAVORITE, isFavorite)
+        data.putExtra(MainActivity.INTENT_EXTRA_POSITION, imagePosition)
+        data.putExtra(MainActivity.INTENT_EXTRA_IMAGE_NAME, imageName)
 
         setResult(Activity.RESULT_OK, data)
 
@@ -250,11 +232,10 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
 
         when (item?.itemId){
+
             R.id.menu_item_like -> {
-                if (!isFavorite){
-                    downloadLiked()
-                }else
-                    dislike()
+
+                animateLike(!isFavorite)
             }
         }
 

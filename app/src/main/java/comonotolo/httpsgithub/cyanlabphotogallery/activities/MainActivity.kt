@@ -3,7 +3,6 @@ package comonotolo.httpsgithub.cyanlabphotogallery.activities
 import android.animation.Animator
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.support.design.widget.TabLayout
 import android.support.v4.app.Fragment
@@ -35,14 +34,12 @@ class MainActivity : AppCompatActivity() {
         val MODE_FAVORITES = R.string.mode_favorites
 
         val INTENT_EXTRA_IMAGE_HREF = "Image href"
+        val INTENT_EXTRA_POSITION = "Image position"
+        val INTENT_EXTRA_IMAGE_NAME = "Image name"
 
         var mode = MainActivity.MODE_RECENT
 
         val REQUEST_CODE_SHOW = 1
-
-        var imagePosition = 0
-        var imageName: String? = null
-        var bitmapAtPosition: Bitmap? = null
 
     }
 
@@ -54,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     val topFragment = TopFragment()
     val favoriteFragment = FavoriteFragment()
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -63,9 +61,13 @@ class MainActivity : AppCompatActivity() {
 
         tabLayout.addOnTabSelectedListener(tabListener)
 
+        System.setProperty("http.keepAlive", "true")
+
         view_pager.setOnPageChangeListener(pageListener)
 
         view_pager.adapter = PagerAdapter(supportFragmentManager)
+
+        view_pager.offscreenPageLimit = 2
 
     }
 
@@ -118,13 +120,13 @@ class MainActivity : AppCompatActivity() {
                 else -> favoriteFragment
             }
 
-            val fvp = (fragment.recycler?.layoutManager as GridLayoutManager).findFirstCompletelyVisibleItemPosition()
+            val fvp = (fragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
 
-            if (fab_up?.visibility == View.VISIBLE && fvp < 4) {
+            if (fab_up?.visibility == View.VISIBLE && fvp != null && fvp < 4) {
 
                 animateFabVisibility(View.GONE)
 
-            } else if (fab_up?.visibility == View.GONE && fvp > 7) {
+            } else if (fab_up?.visibility == View.GONE && fvp != null && fvp > 7) {
 
                 animateFabVisibility(View.VISIBLE)
 
@@ -224,40 +226,20 @@ class MainActivity : AppCompatActivity() {
         when (requestCode){
 
             MainActivity.REQUEST_CODE_SHOW -> {
+
                 if (resultCode == Activity.RESULT_OK){
 
-                    val fragment = when (mode) {
-                        MODE_TOP -> topFragment
-                        MODE_RECENT -> recentFragment
-                        else -> favoriteFragment
-                    }
+                    val isLiked = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
+                    val position = data?.getIntExtra(INTENT_EXTRA_POSITION, -1)
+                    val imageName = data?.getStringExtra(INTENT_EXTRA_IMAGE_NAME)
 
-                    if (MainActivity.mode != MainActivity.MODE_FAVORITES) {
+                    if (position == null || position == -1)
+                        return
 
-                        fragment.likeFlags[MainActivity.imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
+                    favoriteFragment.onLikeEvent(imageName, isLiked)
+                    recentFragment.onLikeEvent(imageName, isLiked)
+                    topFragment.onLikeEvent(imageName, isLiked)
 
-                        fragment.recycler?.adapter?.notifyItemChanged(MainActivity.imagePosition)
-
-                        if (fragment.likeFlags[imagePosition]) {
-
-                            favoriteFragment.imagesNames.add(imageName)
-                            favoriteFragment.recycler?.adapter?.notifyItemInserted(favoriteFragment.imagesNames.lastIndex)
-
-                        } else if (favoriteFragment.imagesNames.contains(imageName)) {
-
-                            val index = favoriteFragment.imagesNames.indexOf(imageName)
-
-                            favoriteFragment.imagesNames.remove(imageName)
-                            favoriteFragment.recycler?.adapter?.notifyItemRemoved(index)
-                        }
-
-                    }
-                    else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
-
-                        fragment.imagesNames.removeAt(MainActivity.imagePosition)
-
-                        fragment.recycler?.adapter?.notifyItemRemoved(MainActivity.imagePosition)
-                    }
                 }
             }
         }

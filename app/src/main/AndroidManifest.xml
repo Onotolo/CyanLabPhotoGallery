@@ -23,7 +23,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".activities.ImageActivity"
-            android:theme="@style/ImageActTheme"
+            android:theme="@style/AppTheme"
             />
 
         <meta-data
