@@ -66,13 +66,18 @@ class ImageActivity : AppCompatActivity() {
 
         isFavorite = if (!favorites.contains("${imageName?.replace('.', '@')}.png")) {
 
-            Picasso.get().load("${imageHref}_XXL").memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE).into(imageView, callback)
+            Picasso.get().load("${imageHref}_XXL")
+                    .memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE)
+                    .into(imageView, callback)
 
             false
 
         }else {
 
-            Picasso.get().load(File("${filesDir.absolutePath}/${imageName?.replace('.', '@')}.png")).into(imageView, callback)
+            Picasso.get()
+                    .load(File("${filesDir.absolutePath}/${imageName?.replace('.', '@')}.png"))
+                    .memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE)
+                    .into(imageView, callback)
 
             true
 
@@ -217,7 +222,7 @@ class ImageActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
 
-        menu?.getItem(1)?.setIcon(if (isFavorite) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+        menu?.getItem(1)?.setIcon(if (isFavorite) R.drawable.ic_favorite_dark_36dp else R.drawable.ic_favorite_border_dark_36dp)
 
         return super.onPrepareOptionsMenu(menu)
     }

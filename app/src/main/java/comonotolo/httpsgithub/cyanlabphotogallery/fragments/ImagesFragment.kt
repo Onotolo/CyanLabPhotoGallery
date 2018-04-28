@@ -14,6 +14,12 @@ import comonotolo.httpsgithub.cyanlabphotogallery.view.GalleryAdapter
 
 abstract class ImagesFragment() : Fragment() {
 
+    companion object {
+        val MODE_RECENT = R.string.mode_recent
+        val MODE_TOP = R.string.mode_top
+        val MODE_FAVORITES = R.string.mode_favorites
+    }
+
     val imagesNames = ArrayList<String?>()
 
     val imagesHrefs = ArrayList<String?>()
@@ -43,6 +49,8 @@ abstract class ImagesFragment() : Fragment() {
         recycler?.scheduleLayoutAnimation()
 
         prepareRecycler()
+
+        loadImages()
 
         return view
     }

@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.view.View
 import comonotolo.httpsgithub.cyanlabphotogallery.network.URLResponseParser
 import comonotolo.httpsgithub.cyanlabphotogallery.view.ImageHolder
+import kotlinx.android.synthetic.main.activity_main.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
@@ -14,13 +15,6 @@ abstract class NetFragment() : ImagesFragment() {
 
     val client = OkHttpClient()
 
-    override fun onStart() {
-
-        loadImages()
-
-        super.onStart()
-    }
-
     override fun loadImages(url: String?) {
 
         val netInfo = (activity?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo
@@ -28,6 +22,13 @@ abstract class NetFragment() : ImagesFragment() {
 
             isLoading = true
 
+            val refreshLayout = activity?.refresh_layout
+
+            refreshLayout?.visibility = View.VISIBLE
+
+            refreshLayout?.alpha = 0f
+
+            refreshLayout?.animate()?.alpha(1f)?.setDuration(225)?.start()
 
             thread(true) {
 
@@ -87,6 +88,8 @@ abstract class NetFragment() : ImagesFragment() {
 
                     recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
 
+                    activity?.refresh_layout?.visibility = View.GONE
+
                 }
             }
         }
@@ -119,13 +122,6 @@ abstract class NetFragment() : ImagesFragment() {
 
             (holder as ImageHolder?)?.like?.visibility = if (isLiked) View.VISIBLE else View.GONE
         }
-    }
-
-    override fun onPause() {
-
-        //client?.connectionPool()?.evictAll()
-
-        super.onPause()
     }
 
 

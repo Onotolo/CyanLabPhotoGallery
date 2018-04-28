@@ -8,7 +8,6 @@ import android.view.ViewGroup
 import com.squareup.picasso.MemoryPolicy
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
-import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.ImagesFragment
 import java.io.File
 
@@ -42,7 +41,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
 
         return when (fragment.mode) {
 
-            MainActivity.MODE_FAVORITES -> imagesNames.size
+            ImagesFragment.MODE_FAVORITES -> imagesNames.size
 
             else -> imagesHrefs.size
         }
@@ -52,7 +51,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
 
         val favorites = fragment.activity?.filesDir?.list()
 
-        if (!(fragment.mode == MainActivity.MODE_FAVORITES || favorites?.contains("${imagesNames[position]?.replace('.', '@')}.png") == true)) {
+        if (!(fragment.mode == ImagesFragment.MODE_FAVORITES || favorites?.contains("${imagesNames[position]?.replace('.', '@')}.png") == true)) {
 
             Picasso.get()
                     .load("${imagesHrefs[position]}_L")
@@ -69,7 +68,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
                     .into(holder.image)
 
 
-        if (fragment.mode != MainActivity.MODE_FAVORITES)
+        if (fragment.mode != ImagesFragment.MODE_FAVORITES)
 
             holder.like.visibility = if (fragment.likeFlags[position]) View.VISIBLE else View.GONE
         else

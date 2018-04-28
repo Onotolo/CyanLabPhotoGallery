@@ -24,6 +24,7 @@
         </activity>
         <activity android:name=".activities.ImageActivity"
             android:theme="@style/AppTheme"
+            android:parentActivityName=".activities.MainActivity"
             />
 
         <meta-data

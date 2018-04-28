@@ -29,15 +29,9 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
 
-        val MODE_RECENT = R.string.mode_recent
-        val MODE_TOP = R.string.mode_top
-        val MODE_FAVORITES = R.string.mode_favorites
-
         val INTENT_EXTRA_IMAGE_HREF = "Image href"
         val INTENT_EXTRA_POSITION = "Image position"
         val INTENT_EXTRA_IMAGE_NAME = "Image name"
-
-        var mode = MainActivity.MODE_RECENT
 
         val REQUEST_CODE_SHOW = 1
 
@@ -108,15 +102,9 @@ class MainActivity : AppCompatActivity() {
 
             view_pager.currentItem = tab?.position ?: 0
 
-            mode = when (view_pager.currentItem) {
-                0 -> MODE_RECENT
-                1 -> MODE_TOP
-                else -> MODE_FAVORITES
-            }
-
-            val fragment = when (mode) {
-                MODE_TOP -> topFragment
-                MODE_RECENT -> recentFragment
+            val fragment = when (view_pager.currentItem) {
+                0 -> recentFragment
+                1 -> topFragment
                 else -> favoriteFragment
             }
 
@@ -254,12 +242,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        when (item.itemId) {
-            R.id.action_settings -> return true
-            else -> return super.onOptionsItemSelected(item)
+
+        return when (item.itemId) {
+
+            R.id.menu_item_refresh -> {
+
+                val fragment = when (view_pager.currentItem) {
+                    0 -> recentFragment
+                    1 -> topFragment
+                    else -> favoriteFragment
+                }
+
+                if (!fragment.isLoading) {
+                    fragment.loadImages()
+                    true
+                } else
+                    false
+
+            }
+            else -> super.onOptionsItemSelected(item)
         }
     }
 

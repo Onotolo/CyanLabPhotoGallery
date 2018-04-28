@@ -1,7 +1,5 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
-import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
-
 class FavoriteFragment : ImagesFragment() {
 
 
@@ -21,7 +19,7 @@ class FavoriteFragment : ImagesFragment() {
         }
     }
 
-    override val mode = MainActivity.MODE_FAVORITES
+    override val mode = MODE_FAVORITES
 
     override fun loadImages(url: String?) {
 
