@@ -1,6 +1,6 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
-class FavoriteFragment : ImagesFragment() {
+class FavoriteFragment : GalleryFragment() {
 
 
     override fun onLikeEvent(imageName: String?, isLiked: Boolean) {

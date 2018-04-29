@@ -11,7 +11,7 @@ import okhttp3.Request
 import java.io.IOException
 import kotlin.concurrent.thread
 
-abstract class NetFragment() : ImagesFragment() {
+abstract class NetFragment() : GalleryFragment() {
 
     val client = OkHttpClient()
 

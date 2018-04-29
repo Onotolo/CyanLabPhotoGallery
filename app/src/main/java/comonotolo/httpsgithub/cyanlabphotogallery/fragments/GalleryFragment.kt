@@ -12,7 +12,7 @@ import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.view.GalleryAdapter
 
-abstract class ImagesFragment() : Fragment() {
+abstract class GalleryFragment() : Fragment() {
 
     companion object {
         val MODE_RECENT = R.string.mode_recent

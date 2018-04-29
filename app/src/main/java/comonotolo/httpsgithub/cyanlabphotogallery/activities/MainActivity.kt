@@ -29,9 +29,11 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
 
-        val INTENT_EXTRA_IMAGE_HREF = "Image href"
         val INTENT_EXTRA_POSITION = "Image position"
         val INTENT_EXTRA_IMAGE_NAME = "Image name"
+        val INTENT_EXTRA_IMAGES_NAMES = "Images names"
+        val INTENT_EXTRA_IMAGES_HREFS = "Images hrefs"
+        val INTENT_EXTRA_LIKES = "Images likes"
 
         val REQUEST_CODE_SHOW = 1
 
@@ -217,22 +219,28 @@ class MainActivity : AppCompatActivity() {
 
                 if (resultCode == Activity.RESULT_OK){
 
-                    val isLiked = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
-                    val position = data?.getIntExtra(INTENT_EXTRA_POSITION, -1)
-                    val imageName = data?.getStringExtra(INTENT_EXTRA_IMAGE_NAME)
+                    val liked = data?.getBooleanArrayExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES)
+                    val imagesNames = data?.getStringArrayListExtra(INTENT_EXTRA_IMAGES_NAMES)
 
-                    if (position == null || position == -1)
+                    if (liked?.size != imagesNames?.size || liked == null || imagesNames == null) {
                         return
+                    }
 
-                    favoriteFragment.onLikeEvent(imageName, isLiked)
-                    recentFragment.onLikeEvent(imageName, isLiked)
-                    topFragment.onLikeEvent(imageName, isLiked)
+                    for (i in 0 until liked.size) {
+                        handleLikeEvent(imagesNames[i], liked[i])
+                    }
 
                 }
             }
         }
 
         super.onActivityResult(requestCode, resultCode, data)
+    }
+
+    fun handleLikeEvent(imageName: String?, isLiked: Boolean) {
+        favoriteFragment.onLikeEvent(imageName, isLiked)
+        recentFragment.onLikeEvent(imageName, isLiked)
+        topFragment.onLikeEvent(imageName, isLiked)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
