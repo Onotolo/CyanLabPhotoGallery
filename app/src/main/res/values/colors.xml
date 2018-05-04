@@ -8,4 +8,5 @@
     <color name="darkBackground">#616161</color>
     <color name="colorText">#616161</color>
     <color name="colorWhiteLowAlpha">#a3ffffff</color>
+    <color name="colorPrimaryLowAlpha">#71e0e0e0</color>
 </resources>

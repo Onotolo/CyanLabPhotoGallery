@@ -20,6 +20,7 @@ import android.view.View
 import android.view.ViewPropertyAnimator
 import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.FavoriteFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.GalleryFragment
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.RecentFragment
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.TopFragment
 import kotlinx.android.synthetic.main.activity_main.*
@@ -30,12 +31,15 @@ class MainActivity : AppCompatActivity() {
     companion object {
 
         val INTENT_EXTRA_POSITION = "Image position"
-        val INTENT_EXTRA_IMAGE_NAME = "Image name"
         val INTENT_EXTRA_IMAGES_NAMES = "Images names"
         val INTENT_EXTRA_IMAGES_HREFS = "Images hrefs"
         val INTENT_EXTRA_LIKES = "Images likes"
 
         val REQUEST_CODE_SHOW = 1
+
+        var favoriteFragmentID = -1
+        var topFragmentID = -1
+        var recentFragmentID = -1
 
     }
 
@@ -43,9 +47,9 @@ class MainActivity : AppCompatActivity() {
 
     val pageListener = PageListener()
 
-    val recentFragment = RecentFragment()
-    val topFragment = TopFragment()
-    val favoriteFragment = FavoriteFragment()
+    lateinit var recentFragment: RecentFragment
+    lateinit var topFragment: TopFragment
+    lateinit var favoriteFragment: FavoriteFragment
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,9 +65,21 @@ class MainActivity : AppCompatActivity() {
 
         view_pager.setOnPageChangeListener(pageListener)
 
-        view_pager.adapter = PagerAdapter(supportFragmentManager)
+        val recent = supportFragmentManager.findFragmentByTag(makeFragTag(0)) as RecentFragment?
+        recentFragment = recent ?: RecentFragment()
 
-        view_pager.offscreenPageLimit = 2
+        val top = supportFragmentManager.findFragmentByTag(makeFragTag(1)) as TopFragment?
+        topFragment = top ?: TopFragment()
+
+        val favorites = supportFragmentManager.findFragmentByTag(makeFragTag(2)) as FavoriteFragment?
+        favoriteFragment = favorites ?: FavoriteFragment()
+
+        if (view_pager.adapter == null) {
+            view_pager.adapter = PagerAdapter(supportFragmentManager)
+            view_pager.offscreenPageLimit = 2
+        }
+
+
 
     }
 
@@ -71,10 +87,16 @@ class MainActivity : AppCompatActivity() {
 
         override fun getItem(position: Int): Fragment {
 
+            val fragment = supportFragmentManager.findFragmentByTag(makeFragTag(position))
+
+            if (fragment != null)
+                return fragment
+
             return when (position) {
                 0 -> recentFragment
                 1 -> topFragment
                 else -> favoriteFragment
+
             }
         }
 
@@ -82,6 +104,10 @@ class MainActivity : AppCompatActivity() {
             return 3
         }
 
+    }
+
+    fun makeFragTag(position: Int): String {
+        return "android:switcher:${view_pager.id}:$position"
     }
 
     inner class PageListener : ViewPager.SimpleOnPageChangeListener() {
@@ -110,21 +136,8 @@ class MainActivity : AppCompatActivity() {
                 else -> favoriteFragment
             }
 
-            val fvp = (fragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
+            invalidateFab(fragment)
 
-            if (fab_up?.visibility == View.VISIBLE && fvp != null && fvp < 4) {
-
-                animateFabVisibility(View.GONE)
-
-            } else if (fab_up?.visibility == View.GONE && fvp != null && fvp > 7) {
-
-                animateFabVisibility(View.VISIBLE)
-
-            }
-
-            fab_up?.setOnClickListener {
-                fragment.recycler?.scrollToPosition(0)
-            }
 
         }
 
@@ -179,7 +192,10 @@ class MainActivity : AppCompatActivity() {
                             isFabAnimated = false
                         }
 
-                        override fun onAnimationCancel(p0: Animator?) {}
+                        override fun onAnimationCancel(p0: Animator?) {
+
+                            isFabAnimated = false
+                        }
 
                         override fun onAnimationStart(p0: Animator?) {
                             isFabAnimated = true
@@ -189,26 +205,50 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    inner class OnChildStateChangedLoader(val manager: GridLayoutManager) : RecyclerView.OnChildAttachStateChangeListener {
+    inner class OnChildStateChangedLoader : RecyclerView.OnChildAttachStateChangeListener {
 
         override fun onChildViewDetachedFromWindow(view: View?) {
 
-            val flv = manager.findFirstCompletelyVisibleItemPosition()
+            val curFragment = when (view_pager.currentItem) {
+                0 -> recentFragment
+                1 -> topFragment
+                else -> favoriteFragment
+            }
+
+            invalidateFab(curFragment)
+        }
+
+        override fun onChildViewAttachedToWindow(view: View?) {
+        }
+
+    }
+
+    fun invalidateFab(fragment: GalleryFragment) {
+
+        val curFragment = when (view_pager.currentItem) {
+            0 -> recentFragment
+            1 -> topFragment
+            else -> favoriteFragment
+        }
+
+        if (curFragment == fragment) {
+            val flv = (curFragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
+                    ?: return
 
             if (fab_up.visibility != View.VISIBLE && flv > 7) {
 
                 animateFabVisibility(View.VISIBLE)
+                fab_up?.setOnClickListener {
+                    fragment.recycler?.scrollToPosition(0)
+                }
 
             } else if (flv < 4) {
 
                 animateFabVisibility(View.GONE)
             }
 
-        }
 
-        override fun onChildViewAttachedToWindow(view: View?) {
         }
-
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -238,6 +278,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun handleLikeEvent(imageName: String?, isLiked: Boolean) {
+
         favoriteFragment.onLikeEvent(imageName, isLiked)
         recentFragment.onLikeEvent(imageName, isLiked)
         topFragment.onLikeEvent(imageName, isLiked)

@@ -11,13 +11,14 @@ import okhttp3.Request
 import java.io.IOException
 import kotlin.concurrent.thread
 
-abstract class NetFragment() : GalleryFragment() {
+abstract class NetFragment : GalleryFragment() {
 
     val client = OkHttpClient()
 
     override fun loadImages(url: String?) {
 
-        val netInfo = (activity?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo
+        val netInfo = (activity?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?)?.activeNetworkInfo
+
         if (netInfo != null && netInfo.isConnectedOrConnecting) {
 
             isLoading = true
@@ -30,11 +31,11 @@ abstract class NetFragment() : GalleryFragment() {
 
             refreshLayout?.animate()?.alpha(1f)?.setDuration(225)?.start()
 
-            thread(true) {
+            if (url.equals(defaultURL())) {
+                isBottomReached = false
+            }
 
-                if (url.equals(defaultURL())) {
-                    isBottomReached = false
-                }
+            thread(isDaemon = true) {
 
                 val request = Request.Builder()
                         .get()
@@ -50,6 +51,10 @@ abstract class NetFragment() : GalleryFragment() {
 
                     isLoading = false
 
+                    activity?.runOnUiThread {
+                        activity?.refresh_layout?.visibility = View.GONE
+                    }
+
                     return@thread
                 }
 
@@ -59,6 +64,10 @@ abstract class NetFragment() : GalleryFragment() {
 
                 } catch (ex: IOException) {
                     isLoading = false
+
+                    activity?.runOnUiThread {
+                        activity?.refresh_layout?.visibility = View.GONE
+                    }
 
                     return@thread
                 }
@@ -82,6 +91,10 @@ abstract class NetFragment() : GalleryFragment() {
 
                 activity?.runOnUiThread {
 
+                    if (newImagesHrefs.size == 0) {
+
+                    }
+
                     isLoading = false
 
                     val oldPosition = imagesHrefs.size
@@ -99,12 +112,14 @@ abstract class NetFragment() : GalleryFragment() {
 
         val favorites = activity?.filesDir?.list()
 
-        for (name in imagesNames) {
+        for (i in imagesNames.indices) {
+
+            val name = imagesNames[i]
 
             val isFavorite = favorites?.contains("${name?.replace('.', '@')}.png") == true
 
-            if (imagesNames.indexOf(name) < likeFlags.size)
-                likeFlags[imagesNames.indexOf(name)] = isFavorite
+            if (i < likeFlags.size)
+                likeFlags[i] = isFavorite
             else
                 likeFlags.add(isFavorite)
         }

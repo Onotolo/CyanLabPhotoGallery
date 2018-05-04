@@ -8,6 +8,8 @@ import android.support.v7.widget.RecyclerView
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import com.squareup.picasso.MemoryPolicy
+import com.squareup.picasso.NetworkPolicy
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.ImageActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
@@ -19,19 +21,21 @@ import kotlin.concurrent.thread
 
 class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView.ViewHolder(imageView) {
 
+    val activity = fragment.activity as MainActivity
     val image = imageView.holder_image
     val like = imageView.holder_like
+    val progressLike = imageView.progress_like
 
     init {
 
-        val detector = GestureDetector(fragment.activity, OnDoubleClickListener())
+        val detector = GestureDetector(activity, OnDoubleClickListener())
 
-        imageView.setOnTouchListener(View.OnTouchListener { p0, p1 ->
+        imageView.setOnTouchListener { _, motionEvent ->
 
-            detector.onTouchEvent(p1)
+            detector.onTouchEvent(motionEvent)
 
             true
-        })
+        }
     }
 
 
@@ -47,7 +51,7 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
         override fun onSingleTapConfirmed(e: MotionEvent?): Boolean {
 
-            val data = Intent(fragment.activity, ImageActivity::class.java)
+            val data = Intent(activity, ImageActivity::class.java)
 
             data.putExtra(MainActivity.INTENT_EXTRA_POSITION, adapterPosition)
                     .putExtra(MainActivity.INTENT_EXTRA_IMAGES_NAMES, fragment.imagesNames)
@@ -57,7 +61,7 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
                             else BooleanArray(fragment.imagesNames.size, { true })
                     )
 
-            fragment.activity?.startActivityForResult(data, MainActivity.REQUEST_CODE_SHOW)
+            activity.startActivityForResult(data, MainActivity.REQUEST_CODE_SHOW)
 
             return true
         }
@@ -66,68 +70,84 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
     fun animateLike(isLiked: Boolean) {
 
-        (fragment as NetFragment).likeFlags[adapterPosition] = isLiked
+        if (!isLiked) {
 
-        if (isLiked) {
-            like.scaleX = 0f
-            like.scaleY = 0f
+            (fragment as NetFragment).likeFlags[adapterPosition] = isLiked
+            FavoritesManager(activity).handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked, null)
+            activity.handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked)
 
-            like.alpha = 0f
+            like.animate().apply {
+                alpha(0f)
+                scaleX(0f).scaleY(0f)
+                interpolator = LinearOutSlowInInterpolator()
+                duration = 165
+                setListener(LikeAnimationListener())
+                start()
+            }
 
-            like.visibility = View.VISIBLE
+            return
 
-            like.animate()
-                    .alpha(1f)
-                    .scaleX(1.5f).scaleY(1.5f)
-                    .setInterpolator(FastOutSlowInInterpolator())
-                    .setDuration(175)
-                    .setListener(LikeAnimationListener())
-                    .start()
-
-        } else {
-
-            like.animate()
-                    .alpha(0f)
-                    .scaleX(0f).scaleY(0f)
-                    .setInterpolator(LinearOutSlowInInterpolator())
-                    .setDuration(165)
-                    .setListener(LikeAnimationListener())
-                    .start()
         }
 
+        progressLike.visibility = View.VISIBLE
 
+        like.scaleX = 0f
+        like.scaleY = 0f
+
+        like.alpha = 0f
+
+        thread {
+
+            val bitmap = Picasso.get().load("${fragment.imagesHrefs[adapterPosition]}_XXL")
+                    .memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE)
+                    .networkPolicy(NetworkPolicy.NO_CACHE, NetworkPolicy.NO_STORE)
+                    .get()
+
+            (fragment as NetFragment).likeFlags[adapterPosition] = isLiked
+
+            activity.runOnUiThread {
+
+                activity.handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked)
+
+                FavoritesManager(fragment.activity).handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked, bitmap)
+
+                progressLike.visibility = View.GONE
+
+                like.visibility = View.VISIBLE
+
+                like.animate().apply {
+                    alpha(1f)
+                    scaleX(1.5f).scaleY(1.5f)
+                    interpolator = FastOutSlowInInterpolator()
+                    duration = 175
+                    setListener(LikeAnimationListener())
+                    start()
+                }
+            }
+        }
 
 
     }
 
-    inner class LikeAnimationListener() : Animator.AnimatorListener {
+    inner class LikeAnimationListener : Animator.AnimatorListener {
         override fun onAnimationRepeat(p0: Animator?) {}
 
         override fun onAnimationEnd(p0: Animator?) {
 
-            val activity = fragment.activity as MainActivity
+            if (!fragment.likeFlags[adapterPosition]) {
 
-            if (fragment.likeFlags[adapterPosition]) {
-                like.animate()
-                        .alpha(1f)
-                        .scaleX(1f).scaleY(1f)
-                        .setInterpolator(LinearOutSlowInInterpolator())
-                        .setDuration(95)
-                        .setListener(null)
-                        .start()
-            } else {
                 like.visibility = View.GONE
+                return
             }
 
-            thread {
-                val bitmap = Picasso.get().load("${fragment.imagesHrefs[adapterPosition]}_XXL").get()
-                while (bitmap.byteCount <= 0) {
-                }
-                FavoritesManager(activity).handleLikeEvent(fragment.imagesNames[adapterPosition], fragment.likeFlags[adapterPosition], bitmap)
+            like.animate()
+                    .alpha(1f)
+                    .scaleX(1f).scaleY(1f)
+                    .setInterpolator(LinearOutSlowInInterpolator())
+                    .setDuration(155)
+                    .setListener(null)
+                    .start()
 
-            }
-
-            activity.handleLikeEvent(fragment.imagesNames[adapterPosition], fragment.likeFlags[adapterPosition])
         }
 
         override fun onAnimationCancel(p0: Animator?) {}

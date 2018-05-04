@@ -5,7 +5,6 @@ import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import com.squareup.picasso.MemoryPolicy
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.GalleryFragment
@@ -51,26 +50,30 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
 
         val favorites = fragment.activity?.filesDir?.list()
 
-        if (!(fragment.mode == GalleryFragment.MODE_FAVORITES || favorites?.contains("${imagesNames[position]?.replace('.', '@')}.png") == true)) {
+        val fileName = "${imagesNames[position]?.replace('.', '@')}.png"
 
-            Picasso.get()
-                    .load("${imagesHrefs[position]}_L")
-                    .centerCrop()
-                    .resize(height, height)
-                    .memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE)
-                    .into(holder.image)
+        if (!(fragment.mode == GalleryFragment.MODE_FAVORITES || favorites?.contains(fileName) == true)) {
+
+            Picasso.get().load("${imagesHrefs[position]}_L").apply {
+                centerCrop()
+                resize(height, height)
+                into(holder.image)
+            }
         } else
-            Picasso.get()
-                    .load(File("$dirPath/${imagesNames[position]?.replace('.', '@')}.png"))
-                    .memoryPolicy(MemoryPolicy.NO_STORE, MemoryPolicy.NO_CACHE)
-                    .resize(height, height)
-                    .centerCrop()
-                    .into(holder.image)
+            Picasso.get().load(File("$dirPath/$fileName")).apply {
+                resize(height, height)
+                centerCrop()
+                into(holder.image)
+            }
 
 
-        if (fragment.mode != GalleryFragment.MODE_FAVORITES)
+        if (fragment.mode != GalleryFragment.MODE_FAVORITES) {
 
+            holder.like.alpha = 1f
+            holder.like.scaleX = 1f
+            holder.like.scaleY = 1f
             holder.like.visibility = if (fragment.likeFlags[position]) View.VISIBLE else View.GONE
+        }
         else
             holder.like.visibility = View.GONE
 

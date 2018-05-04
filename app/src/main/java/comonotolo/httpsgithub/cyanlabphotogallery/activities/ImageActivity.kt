@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.support.v4.app.Fragment
 import android.support.v4.app.FragmentManager
@@ -20,7 +19,6 @@ import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.ImageFragment
 import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
 import kotlinx.android.synthetic.main.activity_images.*
-import kotlinx.android.synthetic.main.fragment_image.*
 
 class ImageActivity : AppCompatActivity() {
 
@@ -41,6 +39,8 @@ class ImageActivity : AppCompatActivity() {
     lateinit var imagesNames: ArrayList<String?>
     lateinit var likes: BooleanArray
 
+    val aliveFragments = ArrayList<ImageFragment>()
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
@@ -57,6 +57,7 @@ class ImageActivity : AppCompatActivity() {
         pager.adapter = ImagesAdapter(supportFragmentManager)
 
         pager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
+
             override fun onPageScrollStateChanged(state: Int) {
 
             }
@@ -78,10 +79,18 @@ class ImageActivity : AppCompatActivity() {
 
     inner class ImagesAdapter(fm: FragmentManager) : FragmentStatePagerAdapter(fm) {
 
-        override fun getItem(position: Int): Fragment = ImageFragment
-                .getNewInstance(if (imagesNames.size > position) imagesNames[position] else null
-                        , if (imagesHrefs.size > position) imagesHrefs[position] else null, position
-                )
+        override fun getItem(position: Int): Fragment {
+
+            val fragment = ImageFragment
+                    .getNewInstance(if (imagesNames.size > position) imagesNames[position] else null
+                            , if (imagesHrefs.size > position) imagesHrefs[position] else null, position
+                    )
+
+            if (!aliveFragments.contains(fragment))
+                aliveFragments.add(fragment)
+
+            return fragment
+        }
 
         override fun getCount(): Int = imagesNames.size
 
@@ -161,16 +170,12 @@ class ImageActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean {
 
-        addResult(likes[pager.currentItem], pager.currentItem, (image_place.drawable as BitmapDrawable).bitmap)
+        super.onBackPressed()
 
-        shareResults()
-
-        return super.onSupportNavigateUp()
+        return true
     }
 
     override fun onBackPressed() {
-
-        addResult(likes[pager.currentItem], pager.currentItem, (image_place.drawable as BitmapDrawable).bitmap)
 
         shareResults()
 
@@ -187,17 +192,22 @@ class ImageActivity : AppCompatActivity() {
 
         val imageName = imagesNames[position]
 
-        if (!changedImagesNames.contains(imageName)) {
+        if (changedImagesNames.contains(imageName)) {
 
-            changedImagesNames.add(imageName)
-            isFavorites.add(isLiked == true)
-
-        } else {
             isFavorites[changedImagesNames.indexOf(imageName)] = (isLiked == true)
+            return
         }
+
+        changedImagesNames.add(imageName)
+        isFavorites.add(isLiked == true)
     }
 
     fun shareResults() {
+
+        for (fragment in aliveFragments) {
+
+            addResult(likes[fragment.position], fragment.position, fragment.image)
+        }
 
         val data = Intent()
 

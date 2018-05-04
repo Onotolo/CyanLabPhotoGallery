@@ -19,7 +19,8 @@
         android:id="@+id/refresh_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/colorWhiteLowAlpha">
+        android:background="@color/colorWhiteLowAlpha"
+        android:visibility="gone">
 
         <ProgressBar
             android:id="@+id/refresh_progress"
@@ -40,7 +41,6 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
             android:minHeight="56dp"
             app:layout_scrollFlags="scroll|enterAlways"
             app:popupTheme="@style/AppTheme.PopupOverlay"

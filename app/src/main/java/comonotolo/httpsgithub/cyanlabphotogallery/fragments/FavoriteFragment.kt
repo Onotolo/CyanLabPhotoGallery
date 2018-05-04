@@ -2,13 +2,14 @@ package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
 class FavoriteFragment : GalleryFragment() {
 
-
     override fun onLikeEvent(imageName: String?, isLiked: Boolean) {
 
         if (isLiked && !imagesNames.contains(imageName)) {
 
             imagesNames.add(imageName)
-            recycler?.adapter?.notifyItemInserted(imagesNames.lastIndex)
+            recycler?.adapter?.notifyItemInserted(imagesNames.size)
+
+            //recycler?.adapter?.notifyDataSetChanged()
 
         } else if (!isLiked && imagesNames.contains(imageName)) {
 
@@ -22,6 +23,8 @@ class FavoriteFragment : GalleryFragment() {
     override val mode = MODE_FAVORITES
 
     override fun loadImages(url: String?) {
+
+        isLoading = true
 
         val favorites = activity?.filesDir?.list()
 
@@ -43,6 +46,9 @@ class FavoriteFragment : GalleryFragment() {
         }
 
         recycler?.adapter?.notifyItemRangeInserted(oldImagesCount, count)
+        //recycler?.adapter?.notifyDataSetChanged()
+
+        isLoading = false
     }
 
     override fun onStart() {
