@@ -24,5 +24,9 @@
 
     <style name="ImageActTheme" parent="Theme.AppCompat"/>
 
+    <style name="AppTheme.Tab">
+        <item name="selectableItemBackground">@color/colorPrimary</item>
+    </style>
+
 
 </resources>

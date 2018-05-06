@@ -14,4 +14,9 @@
     <string name="tab_item_top">Популярное</string>
     <string name="tab_item_pod">Фото дня</string>
     <string name="tab_item_favorites">Избранное</string>
+
+    <string name="fav_info_1">Seems like you have not added any pictures to favorites so far</string>
+    <string name="fav_info_2">You can do it in a several ways:</string>
+    <string name="fab_info_3">Double tap picture in grid or when you preview it </string>
+    <string name="fab_info_4">Tap on Add Favorite icon during the preview </string>
 </resources>

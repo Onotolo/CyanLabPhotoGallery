@@ -19,26 +19,40 @@ import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.ImageFragment
 import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
 import kotlinx.android.synthetic.main.activity_images.*
+import java.io.File
 
+/**
+ * Activity, that allows user to view pictures separately
+ * Uses View Pager with FragmentStatePagerAdapter, presenting each image on separate fragment
+ *
+ * Here and throughout all application the terms Like Event and Favorite Event are equal and refer to user's adding or removing picture from Favorites*/
 class ImageActivity : AppCompatActivity() {
 
     companion object {
-        val INTENT_EXTRA_IS_FAVORITES = "is Favorites"
+        const val INTENT_EXTRA_IS_FAVORITES = "is Favorites"
     }
 
-    var imagePosition = -1
+    /**
+     * Position of currently visible image
+     */
+    private var imagePosition = -1
 
-    var isLiked = false
-
-    var curFragment: Fragment? = null
-
-    val isFavorites = ArrayList<Boolean>()
-    val changedImagesNames = ArrayList<String?>()
+    // Some kind of stack holding all like events occurred during activity's life
+    private val likesStack = ArrayList<Boolean>()
+    private val imagesNamesStack = ArrayList<String?>()
 
     lateinit var imagesHrefs: ArrayList<String?>
     lateinit var imagesNames: ArrayList<String?>
     lateinit var likes: BooleanArray
 
+    /**
+     * List of alive fragments in the View Pager.
+     *
+     * It is needed when activity finishes and we need to get like events from these fragments
+     * as like events are usually handled from fragment to activity when user proceeds through images and fragment is destroyed by FragmentStatePagerAdapter.
+     *
+     *  If fragment is destroyed because of user's going further through images, it will be removed from this list.
+     */
     val aliveFragments = ArrayList<ImageFragment>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,18 +67,15 @@ class ImageActivity : AppCompatActivity() {
         likes = intent.getBooleanArrayExtra(MainActivity.INTENT_EXTRA_LIKES)
 
         supportActionBar?.title = imagesNames[imagePosition]
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         pager.adapter = ImagesAdapter(supportFragmentManager)
 
         pager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
 
-            override fun onPageScrollStateChanged(state: Int) {
+            override fun onPageScrollStateChanged(state: Int) {}
 
-            }
-
-            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {
-
-            }
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {}
 
             override fun onPageSelected(position: Int) {
                 supportActionBar?.title = imagesNames[position]
@@ -87,6 +98,8 @@ class ImageActivity : AppCompatActivity() {
                     )
 
             if (!aliveFragments.contains(fragment))
+
+            // Adding new fragment to list.
                 aliveFragments.add(fragment)
 
             return fragment
@@ -99,10 +112,13 @@ class ImageActivity : AppCompatActivity() {
 
     override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
 
-        menu?.getItem(1)?.setIcon(
-                if (likes[pager.currentItem]) R.drawable.ic_favorite_dark_36dp else R.drawable.ic_favorite_border_dark_36dp)
+        //Refreshing like icon state due to picture
+        menu?.getItem(0)?.setIcon(
+                if (likes[pager.currentItem]) {
+                    R.drawable.ic_favorite_dark_36dp
+                } else R.drawable.ic_favorite_border_dark_36dp)
 
-        return super.onPrepareOptionsMenu(menu)
+        return true
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -131,7 +147,7 @@ class ImageActivity : AppCompatActivity() {
 
         invalidateOptionsMenu()
 
-        like.setImageResource( if (isLiked == true) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+        like.setImageResource(if (isLiked == true) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
 
         like.visibility = View.VISIBLE
 
@@ -149,7 +165,7 @@ class ImageActivity : AppCompatActivity() {
                 .start()
     }
 
-    inner class LikeAnimationListener() : Animator.AnimatorListener {
+    inner class LikeAnimationListener : Animator.AnimatorListener {
         override fun onAnimationRepeat(p0: Animator?) {}
 
         override fun onAnimationEnd(p0: Animator?) {
@@ -170,19 +186,36 @@ class ImageActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean {
 
-        super.onBackPressed()
+        onBackPressed()
 
         return true
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+
+        // Clear the cache
+        val file = File(cacheDir, "sharedPic.png")
+        file.delete()
+
+    }
+
     override fun onBackPressed() {
 
-        shareResults()
+        prepareEvents()
 
         super.onBackPressed()
     }
 
-    fun addResult(isLiked: Boolean?, position: Int, bitmap: Bitmap?) {
+    /**
+     * Handling like event and adding it to the stack to notify MainActivity when finished
+     *
+     * Note:
+     * Like events are added not every time the user taps like icon or double taps the image,
+     * but only when fragment with image is destroyed or activity is finishing
+     * and some changes occurred: e.g. if user likes and then dislikes image, imageEvent wont be added to stack.
+     */
+    fun addLikeEvent(isLiked: Boolean?, position: Int, bitmap: Bitmap?) {
 
         val isChanged = FavoritesManager(this).handleLikeEvent(imagesNames[position], isLiked == true, bitmap)
 
@@ -192,31 +225,35 @@ class ImageActivity : AppCompatActivity() {
 
         val imageName = imagesNames[position]
 
-        if (changedImagesNames.contains(imageName)) {
+        if (imagesNamesStack.contains(imageName)) {
 
-            isFavorites[changedImagesNames.indexOf(imageName)] = (isLiked == true)
+            likesStack[imagesNamesStack.indexOf(imageName)] = (isLiked == true)
             return
         }
 
-        changedImagesNames.add(imageName)
-        isFavorites.add(isLiked == true)
+        imagesNamesStack.add(imageName)
+        likesStack.add(isLiked == true)
+
+        return
     }
 
-    fun shareResults() {
+    // All results are passed to calling activity via Intent
+    fun prepareEvents() {
 
         for (fragment in aliveFragments) {
 
-            addResult(likes[fragment.position], fragment.position, fragment.image)
+            addLikeEvent(likes[fragment.position], fragment.position, fragment.image)
         }
 
         val data = Intent()
 
-        data.putExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES, isFavorites.toBooleanArray())
-        data.putExtra(MainActivity.INTENT_EXTRA_IMAGES_NAMES, changedImagesNames)
+        data.putExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES, likesStack.toBooleanArray())
+        data.putExtra(MainActivity.INTENT_EXTRA_IMAGES_NAMES, imagesNamesStack)
 
         setResult(Activity.RESULT_OK, data)
 
         finish()
     }
+
 
 }

@@ -10,9 +10,13 @@ import comonotolo.httpsgithub.cyanlabphotogallery.R
 import comonotolo.httpsgithub.cyanlabphotogallery.fragments.GalleryFragment
 import java.io.File
 
+
+/**
+ *  RecyclerView.Adapter inheritor that fills recycler with views with images
+ */
 class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesNames: ArrayList<String?>, val spanCount: Int, private val fragment: GalleryFragment) : RecyclerView.Adapter<ImageHolder>() {
 
-    var width = -1
+    var width: Int
 
     private val dirPath = fragment.activity?.filesDir?.absolutePath
 
@@ -52,6 +56,10 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
 
         val fileName = "${imagesNames[position]?.replace('.', '@')}.png"
 
+
+        /**
+         * If image is in Favorites, it wont be downloaded from net, but directly from internal storage
+         */
         if (!(fragment.mode == GalleryFragment.MODE_FAVORITES || favorites?.contains(fileName) == true)) {
 
             Picasso.get().load("${imagesHrefs[position]}_L").apply {
@@ -73,8 +81,7 @@ class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesN
             holder.like.scaleX = 1f
             holder.like.scaleY = 1f
             holder.like.visibility = if (fragment.likeFlags[position]) View.VISIBLE else View.GONE
-        }
-        else
+        } else
             holder.like.visibility = View.GONE
 
     }

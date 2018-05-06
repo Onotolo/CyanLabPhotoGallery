@@ -1,7 +1,9 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.network
 
-import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
 
+/**
+ * Class that parses xml response of Yandex's server
+ */
 class URLResponseParser {
 
     private val TAG_ENTRY = "<entry>"
@@ -22,14 +24,14 @@ class URLResponseParser {
     private val TAG_NEXT = "rel=\"next\""
     private val TAG_LINK_HREF = "<link href=\""
 
-    val TAG_TITLE = "<title>"
-    val TAG_CLOSE_TITLE = "</title>"
+    private val TAG_TITLE = "<title>"
+    private val TAG_CLOSE_TITLE = "</title>"
 
-    var nextHref: String? = null
+    private var nextHref: String? = null
 
-    var isBottomReached = false
+    private var isBottomReached = false
 
-    var imageNames = ArrayList<String?>()
+    private var imageNames = ArrayList<String?>()
 
     fun parseResponse(response: String?): ParsedResponse{
 
@@ -73,7 +75,7 @@ class URLResponseParser {
 
     class ParsedResponse(val imagesHrefs: ArrayList<String?>, val imagesNames: ArrayList<String?>, val nextHref: String?, val isBottomReached: Boolean)
 
-    fun getNextHref(response: String?): String?{
+    private fun getNextHref(response: String?): String? {
 
         val cutResponse = response?.substring(0, response.indexOf(TAG_NEXT))
 
@@ -83,7 +85,7 @@ class URLResponseParser {
         )
     }
 
-    fun getName(entry: String?): String?{
+    private fun getName(entry: String?): String? {
 
         return entry?.substring(
                 entry.indexOf(TAG_TITLE) + TAG_TITLE.length,
@@ -92,6 +94,9 @@ class URLResponseParser {
     }
 
 
+    /**
+     * All links are stored without postfix to request any sized image easily
+     */
     private fun getImageHRefWithoutPostfix(entry: String): String?{
 
         val srcIndex = entry.indexOf(TAG_CONTENT_SRC)

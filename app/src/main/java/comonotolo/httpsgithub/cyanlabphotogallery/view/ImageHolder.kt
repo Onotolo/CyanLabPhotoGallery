@@ -19,6 +19,9 @@ import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
 import kotlinx.android.synthetic.main.image_holder.view.*
 import kotlin.concurrent.thread
 
+/**
+ * Class which represents single image in gallery's Recycler View
+ */
 class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView.ViewHolder(imageView) {
 
     val activity = fragment.activity as MainActivity
@@ -28,7 +31,7 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
     init {
 
-        val detector = GestureDetector(activity, OnDoubleClickListener())
+        val detector = GestureDetector(activity, OnImageGestureListener())
 
         imageView.setOnTouchListener { _, motionEvent ->
 
@@ -39,7 +42,11 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
     }
 
 
-    inner class OnDoubleClickListener : GestureDetector.SimpleOnGestureListener() {
+    /**
+     *  User can double tap the image to add it to the Favorites.
+     *  If a single tap is confirmed, ImageActivity will be started
+     */
+    inner class OnImageGestureListener : GestureDetector.SimpleOnGestureListener() {
 
         override fun onDoubleTap(e: MotionEvent?): Boolean {
 
@@ -48,6 +55,7 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
             return true
         }
+
 
         override fun onSingleTapConfirmed(e: MotionEvent?): Boolean {
 
@@ -68,6 +76,9 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
     }
 
+    /**
+     * Method that animates like event that occurs when user double-taps image in the Gallery
+     */
     fun animateLike(isLiked: Boolean) {
 
         if (!isLiked) {
@@ -96,6 +107,10 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
         like.alpha = 0f
 
+
+        /**
+         * This block of code might has been better if it's been wrapped it into Kotlin's coroutine instead of thread as it blocks until image is fully downloaded.
+         */
         thread {
 
             val bitmap = Picasso.get().load("${fragment.imagesHrefs[adapterPosition]}_XXL")
@@ -105,11 +120,16 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
 
             (fragment as NetFragment).likeFlags[adapterPosition] = isLiked
 
+            val manager = FavoritesManager(fragment.activity)
+
+            manager.handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked, bitmap)
+
+            while (manager.isInProcess) {
+            }
+
             activity.runOnUiThread {
 
                 activity.handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked)
-
-                FavoritesManager(fragment.activity).handleLikeEvent(fragment.imagesNames[adapterPosition], isLiked, bitmap)
 
                 progressLike.visibility = View.GONE
 
@@ -125,7 +145,6 @@ class ImageHolder(val fragment: GalleryFragment, imageView: View) : RecyclerView
                 }
             }
         }
-
 
     }
 

@@ -3,7 +3,9 @@ package comonotolo.httpsgithub.cyanlabphotogallery.activities
 import android.animation.Animator
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
+import android.support.design.widget.AppBarLayout
 import android.support.design.widget.TabLayout
 import android.support.v4.app.Fragment
 import android.support.v4.app.FragmentManager
@@ -26,30 +28,45 @@ import comonotolo.httpsgithub.cyanlabphotogallery.fragments.TopFragment
 import kotlinx.android.synthetic.main.activity_main.*
 
 
+/**
+ *  Application's main activity, which contains {@link android.support.v4.view.ViewPager}
+ *  with three different fragments {@link import android.support.v4.app.Fragment}
+ */
 class MainActivity : AppCompatActivity() {
 
     companion object {
 
-        val INTENT_EXTRA_POSITION = "Image position"
-        val INTENT_EXTRA_IMAGES_NAMES = "Images names"
-        val INTENT_EXTRA_IMAGES_HREFS = "Images hrefs"
-        val INTENT_EXTRA_LIKES = "Images likes"
+        const val INTENT_EXTRA_POSITION = "Image position"
+        const val INTENT_EXTRA_IMAGES_NAMES = "Images names"
+        const val INTENT_EXTRA_IMAGES_HREFS = "Images hrefs"
+        const val INTENT_EXTRA_LIKES = "Images likes"
 
-        val REQUEST_CODE_SHOW = 1
-
-        var favoriteFragmentID = -1
-        var topFragmentID = -1
-        var recentFragmentID = -1
+        const val REQUEST_CODE_SHOW = 1
 
     }
 
-    val tabListener = TabListener()
+    private val tabListener = TabListener()
 
-    val pageListener = PageListener()
+    private val pageListener = PageListener()
 
-    lateinit var recentFragment: RecentFragment
-    lateinit var topFragment: TopFragment
-    lateinit var favoriteFragment: FavoriteFragment
+    /**
+     *  List of listeners, each of which will be notified if like event occurs
+     */
+    private val onLikeListeners = ArrayList<OnLikeListener>()
+
+    fun addOnLikeListener(listener: OnLikeListener): Boolean =
+            onLikeListeners.add(listener)
+
+    fun removeOnLikeListener(listener: OnLikeListener): Boolean =
+            onLikeListeners.remove(listener)
+
+
+    /**
+     * References to fragments
+     */
+    private lateinit var recentFragment: RecentFragment
+    private lateinit var topFragment: TopFragment
+    private lateinit var favoriteFragment: FavoriteFragment
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,13 +74,43 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
+        (toolbar.layoutParams as AppBarLayout.LayoutParams).scrollFlags = when (resources.configuration.orientation) {
+            Configuration.ORIENTATION_PORTRAIT -> {
+                AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL.or(AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS)
+            }
+            else -> {
+                app_bar.setExpanded(false, false)
+                AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
+            }
+        }
+
         val tabLayout = findViewById<TabLayout>(R.id.tab_layout)
 
         tabLayout.addOnTabSelectedListener(tabListener)
 
+        // Just to make sure...
         System.setProperty("http.keepAlive", "true")
 
         view_pager.setOnPageChangeListener(pageListener)
+
+        findOrCreateFragments()
+
+        if (view_pager.adapter == null) {
+            view_pager.adapter = GalleryPagerAdapter(supportFragmentManager)
+            view_pager.offscreenPageLimit = 2
+        }
+
+    }
+
+    /**
+     *  Method that looks for already existing
+     *  GalleryFragments
+     *  in FragmentManager
+     *
+     *  Keeps references to fragments up-to-dated through all activity lifecycle's changes
+     *
+     */
+    private fun findOrCreateFragments() {
 
         val recent = supportFragmentManager.findFragmentByTag(makeFragTag(0)) as RecentFragment?
         recentFragment = recent ?: RecentFragment()
@@ -73,24 +120,24 @@ class MainActivity : AppCompatActivity() {
 
         val favorites = supportFragmentManager.findFragmentByTag(makeFragTag(2)) as FavoriteFragment?
         favoriteFragment = favorites ?: FavoriteFragment()
-
-        if (view_pager.adapter == null) {
-            view_pager.adapter = PagerAdapter(supportFragmentManager)
-            view_pager.offscreenPageLimit = 2
-        }
-
-
-
     }
 
-    inner class PagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm) {
+    /**
+     *  Function for imitating tags that FragmentPagerAdapter gives to the fragments
+     *  when attaching them to activity.
+     *  @see {FragmentPagerAdapter#makeFragmentName}
+     */
+    private fun makeFragTag(position: Int): String {
+        return "android:switcher:${view_pager.id}:$position"
+    }
+
+
+    /**
+     *  Adapter that attaches manages GalleryFragments to ViewPager
+     */
+    inner class GalleryPagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm) {
 
         override fun getItem(position: Int): Fragment {
-
-            val fragment = supportFragmentManager.findFragmentByTag(makeFragTag(position))
-
-            if (fragment != null)
-                return fragment
 
             return when (position) {
                 0 -> recentFragment
@@ -106,10 +153,10 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    fun makeFragTag(position: Int): String {
-        return "android:switcher:${view_pager.id}:$position"
-    }
 
+    /**
+     *  Class that connects ViewPager with TabLayout
+     */
     inner class PageListener : ViewPager.SimpleOnPageChangeListener() {
 
         override fun onPageSelected(position: Int) {
@@ -137,92 +184,19 @@ class MainActivity : AppCompatActivity() {
             }
 
             invalidateFab(fragment)
-
-
         }
 
     }
 
-    var isFabAnimated = false
 
-    fun animateFabVisibility(visibility: Int) {
-
-        if (!isFabAnimated) {
-            var animation: ViewPropertyAnimator? = null
-
-            if (visibility == View.VISIBLE) {
-
-                fab_up.alpha = 0f
-                fab_up.translationY = 3 * fab_up.height.toFloat()
-
-                fab_up.visibility = View.VISIBLE
-
-                animation = fab_up.animate()
-                        .alpha(1f)
-                        .translationY(0f)
-
-                        .setDuration(225)
-                        .setInterpolator(FastOutSlowInInterpolator())
-
-            } else {
-
-                animation = fab_up.animate()
-
-                        .alpha(0f)
-                        .translationY(3 * fab_up.height.toFloat())
-
-                        .setDuration(195)
-                        .setInterpolator(FastOutLinearInInterpolator())
-
-            }
-
-            animation?.setListener(
-
-                    object : Animator.AnimatorListener {
-
-                        override fun onAnimationRepeat(p0: Animator?) {}
-
-                        override fun onAnimationEnd(p0: Animator?) {
-
-                            if (visibility == View.GONE)
-                                fab_up.visibility = View.GONE
-
-                            fab_up.animate().setListener(null).start()
-
-                            isFabAnimated = false
-                        }
-
-                        override fun onAnimationCancel(p0: Animator?) {
-
-                            isFabAnimated = false
-                        }
-
-                        override fun onAnimationStart(p0: Animator?) {
-                            isFabAnimated = true
-                        }
-
-                    })?.start()
-        }
-    }
-
-    inner class OnChildStateChangedLoader : RecyclerView.OnChildAttachStateChangeListener {
-
-        override fun onChildViewDetachedFromWindow(view: View?) {
-
-            val curFragment = when (view_pager.currentItem) {
-                0 -> recentFragment
-                1 -> topFragment
-                else -> favoriteFragment
-            }
-
-            invalidateFab(curFragment)
-        }
-
-        override fun onChildViewAttachedToWindow(view: View?) {
-        }
-
-    }
-
+    /**
+     * Method that handles Scroll-To-Top FAB
+     * @param fragment As this method is usually called from
+     *  RecyclerView.OnChildAttachStateChangeListener#onChildViewDetachedFromWindow method,
+     *  and each of the alive GalleryFragments contains RecyclerView
+     *  that can be changed during the like events,
+     *  we need to make sure that the calling fragment is in focus
+     */
     fun invalidateFab(fragment: GalleryFragment) {
 
         val curFragment = when (view_pager.currentItem) {
@@ -231,45 +205,130 @@ class MainActivity : AppCompatActivity() {
             else -> favoriteFragment
         }
 
-        if (curFragment == fragment) {
-            val flv = (curFragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
-                    ?: return
+        if (curFragment != fragment) {
+            return
+        }
 
-            if (fab_up.visibility != View.VISIBLE && flv > 7) {
+        fab_up?.setOnClickListener {
+            fragment.recycler?.scrollToPosition(0)
+        }
 
-                animateFabVisibility(View.VISIBLE)
-                fab_up?.setOnClickListener {
-                    fragment.recycler?.scrollToPosition(0)
-                }
+        val flv = (curFragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
+                ?: return
 
-            } else if (flv < 4) {
+        if (fab_up.visibility != View.VISIBLE && flv > 7) {
 
-                animateFabVisibility(View.GONE)
-            }
+            animateFabVisibility(View.VISIBLE)
 
+        } else if (flv < 4) {
 
+            animateFabVisibility(View.GONE)
         }
     }
 
+    var isFabAnimated = false
+
+    private fun animateFabVisibility(visibility: Int) {
+
+        if (isFabAnimated) {
+            return
+        }
+
+        val animation: ViewPropertyAnimator?
+
+        if (visibility == View.VISIBLE) {
+
+            fab_up.alpha = 0f
+            fab_up.translationY = 3 * fab_up.height.toFloat()
+
+            fab_up.visibility = View.VISIBLE
+
+            animation = fab_up.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+
+                    .setDuration(225)
+                    .setInterpolator(FastOutSlowInInterpolator())
+
+        } else {
+
+            animation = fab_up.animate()
+
+                    .alpha(0f)
+                    .translationY(3 * fab_up.height.toFloat())
+
+                    .setDuration(195)
+                    .setInterpolator(FastOutLinearInInterpolator())
+
+        }
+
+        animation?.setListener(
+
+                object : Animator.AnimatorListener {
+
+                    override fun onAnimationRepeat(p0: Animator?) {}
+
+                    override fun onAnimationEnd(p0: Animator?) {
+
+                        if (visibility == View.GONE)
+                            fab_up.visibility = View.GONE
+
+                        fab_up.animate().setListener(null).start()
+
+                        isFabAnimated = false
+                    }
+
+                    override fun onAnimationCancel(p0: Animator?) {
+
+                        isFabAnimated = false
+                    }
+
+                    override fun onAnimationStart(p0: Animator?) {
+                        isFabAnimated = true
+                    }
+
+                })?.start()
+    }
+
+
+    /**
+     * Class that requests to invalidate Scroll-To-Top FAB as user scrolls through the GalleryFragment's Recycler
+     */
+    inner class FabInvalidator(private val fragment: GalleryFragment) : RecyclerView.OnChildAttachStateChangeListener {
+
+        override fun onChildViewDetachedFromWindow(view: View?) {
+
+            invalidateFab(fragment)
+        }
+
+        override fun onChildViewAttachedToWindow(view: View?) {
+        }
+
+    }
+
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 
-        when (requestCode){
+        when (requestCode) {
 
             MainActivity.REQUEST_CODE_SHOW -> {
 
-                if (resultCode == Activity.RESULT_OK){
+                if (resultCode != Activity.RESULT_OK)
+                    return
 
-                    val liked = data?.getBooleanArrayExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES)
-                    val imagesNames = data?.getStringArrayListExtra(INTENT_EXTRA_IMAGES_NAMES)
 
-                    if (liked?.size != imagesNames?.size || liked == null || imagesNames == null) {
-                        return
-                    }
+                /**
+                 * Receive info about like events which occurred during image viewing.
+                 */
+                val liked = data?.getBooleanArrayExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES)
+                val imagesNames = data?.getStringArrayListExtra(INTENT_EXTRA_IMAGES_NAMES)
 
-                    for (i in 0 until liked.size) {
-                        handleLikeEvent(imagesNames[i], liked[i])
-                    }
+                if (liked?.size != imagesNames?.size || liked == null || imagesNames == null) {
+                    return
+                }
 
+                for (i in 0 until liked.size) {
+                    handleLikeEvent(imagesNames[i], liked[i])
                 }
             }
         }
@@ -277,15 +336,27 @@ class MainActivity : AppCompatActivity() {
         super.onActivityResult(requestCode, resultCode, data)
     }
 
+
+    /**
+     * Interface for classes interested in like events
+     */
+    interface OnLikeListener {
+
+        fun onLikeEvent(imageName: String?, isLiked: Boolean)
+    }
+
+    /**
+     * Method that calls onLikeEvent in every interested class
+     */
     fun handleLikeEvent(imageName: String?, isLiked: Boolean) {
 
-        favoriteFragment.onLikeEvent(imageName, isLiked)
-        recentFragment.onLikeEvent(imageName, isLiked)
-        topFragment.onLikeEvent(imageName, isLiked)
+        for (listener in onLikeListeners) {
+            listener.onLikeEvent(imageName, isLiked)
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
+
         menuInflater.inflate(R.menu.main, menu)
         return true
     }
@@ -296,17 +367,20 @@ class MainActivity : AppCompatActivity() {
 
             R.id.menu_item_refresh -> {
 
-                val fragment = when (view_pager.currentItem) {
-                    0 -> recentFragment
-                    1 -> topFragment
-                    else -> favoriteFragment
+                for (i in 0 until 3) {
+
+                    val fragment = when (view_pager.currentItem) {
+                        0 -> recentFragment
+                        1 -> topFragment
+                        else -> favoriteFragment
+                    }
+
+                    if (!fragment.isLoading) {
+                        fragment.loadImages()
+                    }
                 }
 
-                if (!fragment.isLoading) {
-                    fragment.loadImages()
-                    true
-                } else
-                    false
+                true
 
             }
             else -> super.onOptionsItemSelected(item)

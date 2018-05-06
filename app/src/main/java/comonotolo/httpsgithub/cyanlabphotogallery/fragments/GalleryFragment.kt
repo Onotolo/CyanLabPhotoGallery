@@ -14,7 +14,11 @@ import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.view.GalleryAdapter
 import comonotolo.httpsgithub.cyanlabphotogallery.view.ImageHolder
 
-abstract class GalleryFragment() : Fragment() {
+
+/**
+ *  Abstract class that defines common methods shared by all Fragments that must represent grid of images
+ */
+abstract class GalleryFragment : Fragment() {
 
     companion object {
         val MODE_RECENT = R.string.mode_recent
@@ -22,30 +26,42 @@ abstract class GalleryFragment() : Fragment() {
         val MODE_FAVORITES = R.string.mode_favorites
     }
 
+    /**
+     * Three lists which contain info about images
+     */
     var imagesNames = ArrayList<String?>()
-
     var imagesHrefs = ArrayList<String?>()
-
     var likeFlags = ArrayList<Boolean>()
 
     abstract val mode: Int
 
+    /**
+     * Link to the next page of photos
+     */
     var nextHref: String? = null
 
     var recycler: RecyclerView? = null
 
     var spanCount = 2
 
-    val EXTRA_NAMES = "names $mode"
-    val EXTRA_HREFS = "hrefs $mode"
-    val EXTRA_LIKES = "likes $mode"
+    private val EXTRA_NAMES = "names $mode"
+    private val EXTRA_HREFS = "hrefs $mode"
+    private val EXTRA_LIKES = "likes $mode"
     val EXTRA_SCROLL_POSITION = "scroll $mode"
 
+    /**
+     *  Returns default url link depending on mode of a Fragment
+     */
     fun defaultURL() =
             "http://api-fotki.yandex.ru/api/${resources.getString(mode)}/updated/"
 
     var isLoading = false
+
+    /**
+     * Flag that is true when there is no href to the next page of images
+     */
     var isBottomReached = false
+
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
 
@@ -58,6 +74,8 @@ abstract class GalleryFragment() : Fragment() {
             loadImages()
             return view
         }
+
+        // Restoring state
 
         imagesNames = savedInstanceState.getStringArrayList(EXTRA_NAMES)
         imagesHrefs = savedInstanceState.getStringArrayList(EXTRA_HREFS)
@@ -105,7 +123,7 @@ abstract class GalleryFragment() : Fragment() {
 
         recycler?.adapter = GalleryAdapter(imagesHrefs, imagesNames, spanCount, this)
 
-        recycler?.addOnChildAttachStateChangeListener((activity as MainActivity).OnChildStateChangedLoader())
+        recycler?.addOnChildAttachStateChangeListener((activity as MainActivity).FabInvalidator(this))
 
         recycler?.setRecyclerListener {
 
@@ -117,7 +135,5 @@ abstract class GalleryFragment() : Fragment() {
     }
 
     abstract fun loadImages(url: String? = null)
-
-    abstract fun onLikeEvent(imageName: String?, isLiked: Boolean)
 
 }

@@ -1,38 +1,68 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
-class FavoriteFragment : GalleryFragment() {
+import android.view.View
+import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
+import kotlinx.android.synthetic.main.fragment_images.*
+import kotlin.concurrent.thread
 
-    override fun onLikeEvent(imageName: String?, isLiked: Boolean) {
+/**
+ * Gallery Fragment inerrant that shows Favorite pictures.
+ *
+ * Favorite pictures are stored in internal storage and user is not given a direct access to them.
+ * To learn more about favorites storage @see FavoritesManager
+ */
+class FavoriteFragment : GalleryFragment(), FavoritesManager.OnFavoriteChangedListener {
 
-        if (isLiked && !imagesNames.contains(imageName)) {
 
-            imagesNames.add(imageName)
-            recycler?.adapter?.notifyItemInserted(imagesNames.size)
+    /**
+     * This method is called when FavoritesManager finishes saving or removing file with image.
+     */
+    override fun onFavoriteChanged(imageName: String?, isLiked: Boolean) {
 
-            //recycler?.adapter?.notifyDataSetChanged()
+        activity?.runOnUiThread {
+            if (isLiked && !imagesNames.contains(imageName)) {
 
-        } else if (!isLiked && imagesNames.contains(imageName)) {
+                imagesNames.add(imageName)
+                recycler?.adapter?.notifyItemInserted(imagesNames.size)
 
-            val index = imagesNames.indexOf(imageName)
+                //recycler?.adapter?.notifyDataSetChanged()
 
-            imagesNames.remove(imageName)
-            recycler?.adapter?.notifyItemRemoved(index)
+            } else if (!isLiked && imagesNames.contains(imageName)) {
+
+                val index = imagesNames.indexOf(imageName)
+
+                imagesNames.remove(imageName)
+                recycler?.adapter?.notifyItemRemoved(index)
+            }
+
+            if (imagesNames.size == 0) {
+                recycler?.visibility = View.GONE
+                fav_info.visibility = View.VISIBLE
+            } else
+                recycler?.visibility = View.VISIBLE
         }
     }
 
     override val mode = MODE_FAVORITES
 
+
     override fun loadImages(url: String?) {
 
-        isLoading = true
+        if (isLoading)
+            return
 
-        val favorites = activity?.filesDir?.list()
+        thread(isDaemon = true) {
 
-        val oldImagesCount = imagesNames.size
+            isLoading = true
 
-        var count = 0
+            val favorites = activity?.filesDir?.list()
 
-        if (favorites != null) {
+            if (favorites == null) {
+
+                isLoading = false
+                return@thread
+            }
+
             for (favorite in favorites) {
 
                 val name = favorite.removeSuffix(".png").replace('@', '.')
@@ -40,20 +70,29 @@ class FavoriteFragment : GalleryFragment() {
                 if (!imagesNames.contains(name)) {
 
                     imagesNames.add(name)
-                    count++
                 }
             }
+
+            activity?.runOnUiThread {
+
+                recycler?.adapter?.notifyDataSetChanged()
+
+                isLoading = false
+
+                if (imagesNames.size == 0) {
+                    recycler?.visibility = View.GONE
+                    fav_info.visibility = View.VISIBLE
+                } else
+                    recycler?.visibility = View.VISIBLE
+            }
         }
-
-        recycler?.adapter?.notifyItemRangeInserted(oldImagesCount, count)
-        //recycler?.adapter?.notifyDataSetChanged()
-
-        isLoading = false
     }
 
     override fun onStart() {
 
         loadImages()
+
+        FavoritesManager(activity).addOnFavoriteChangedListener(this)
 
         super.onStart()
     }

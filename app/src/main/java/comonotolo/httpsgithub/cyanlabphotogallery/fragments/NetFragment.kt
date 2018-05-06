@@ -2,7 +2,9 @@ package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.os.Bundle
 import android.view.View
+import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
 import comonotolo.httpsgithub.cyanlabphotogallery.network.URLResponseParser
 import comonotolo.httpsgithub.cyanlabphotogallery.view.ImageHolder
 import kotlinx.android.synthetic.main.activity_main.*
@@ -11,104 +13,130 @@ import okhttp3.Request
 import java.io.IOException
 import kotlin.concurrent.thread
 
-abstract class NetFragment : GalleryFragment() {
+/**
+ * Fragment that loads pictures from Net
+ */
+abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
 
-    val client = OkHttpClient()
+    private val client = OkHttpClient()
 
+
+    /**
+     * Huge method for loading images from Яндекс Фотки{https://fotki.yandex.ru/}
+     */
     override fun loadImages(url: String?) {
 
         val netInfo = (activity?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?)?.activeNetworkInfo
 
-        if (netInfo != null && netInfo.isConnectedOrConnecting) {
+        if (netInfo == null || !netInfo.isConnectedOrConnecting) {
 
-            isLoading = true
+            recycler?.visibility = View.GONE
 
-            val refreshLayout = activity?.refresh_layout
+            if (refresh_layout?.visibility != View.GONE)
+                activity?.refresh_layout?.visibility = View.GONE
 
-            refreshLayout?.visibility = View.VISIBLE
+            return
+        }
 
-            refreshLayout?.alpha = 0f
+        isLoading = true
 
-            refreshLayout?.animate()?.alpha(1f)?.setDuration(225)?.start()
 
-            if (url.equals(defaultURL())) {
-                isBottomReached = false
-            }
 
-            thread(isDaemon = true) {
+        if (refresh_layout?.visibility != View.VISIBLE) {
 
-                val request = Request.Builder()
-                        .get()
-                        .addHeader("Host", "api-fotki.yandex.ru")
-                        //.addHeader("Connection", "keep-alive")
-                        .url(url ?: defaultURL())
-                        .tag("HTTP/1.1")
-                        .build()
+            refresh_layout?.visibility = View.VISIBLE
 
-                val response = client.newCall(request)?.execute()
+            refresh_layout?.alpha = 0f
 
-                if (!(response?.isSuccessful == true)) {
+            refresh_layout?.animate()?.alpha(1f)?.setDuration(225)?.start()
+        }
 
-                    isLoading = false
+        if (url.equals(defaultURL())) {
+            isBottomReached = false
+        }
 
-                    activity?.runOnUiThread {
-                        activity?.refresh_layout?.visibility = View.GONE
-                    }
+        thread(isDaemon = true) {
 
-                    return@thread
-                }
+            val request = Request.Builder()
+                    .get()
+                    .addHeader("Host", "api-fotki.yandex.ru")
+                    .addHeader("Connection", "keep-alive")
+                    .url(url ?: defaultURL())
+                    .tag("HTTP/1.1")
+                    .build()
 
-                val parsedResponse = try {
+            val response = client.newCall(request)?.execute()
 
-                    URLResponseParser().parseResponse(response.body()?.string())
+            if (response?.isSuccessful != true) {
 
-                } catch (ex: IOException) {
-                    isLoading = false
-
-                    activity?.runOnUiThread {
-                        activity?.refresh_layout?.visibility = View.GONE
-                    }
-
-                    return@thread
-                }
-
-                val newImagesHrefs = parsedResponse.imagesHrefs
-
-                var newImagesShift = 0
-
-                parsedResponse.imagesHrefs.forEach {
-                    if (!imagesHrefs.contains(it)) {
-                        imagesHrefs.add(newImagesShift, it)
-                        imagesNames.add(newImagesShift++, parsedResponse.imagesNames[newImagesHrefs.indexOf(it)])
-                    }
-                }
-
-                isBottomReached = parsedResponse.isBottomReached
-
-                nextHref = parsedResponse.nextHref
-
-                fillLikeFlags()
+                isLoading = false
 
                 activity?.runOnUiThread {
+                    if (refresh_layout?.visibility != View.GONE)
+                        activity?.refresh_layout?.visibility = View.GONE
+                }
 
-                    if (newImagesHrefs.size == 0) {
+                return@thread
+            }
 
-                    }
+            val parsedResponse = try {
 
-                    isLoading = false
+                URLResponseParser().parseResponse(response.body()?.string())
 
-                    val oldPosition = imagesHrefs.size
+            } catch (ex: IOException) {
+                isLoading = false
 
-                    recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
+                activity?.runOnUiThread {
+                    if (refresh_layout?.visibility != View.GONE)
+                        activity?.refresh_layout?.visibility = View.GONE
+                }
 
+                return@thread
+            }
+
+            val newImagesHrefs = parsedResponse.imagesHrefs
+
+            var newImagesShift = 0
+
+            parsedResponse.imagesHrefs.forEach {
+                if (!imagesHrefs.contains(it)) {
+                    imagesHrefs.add(newImagesShift, it)
+                    imagesNames.add(newImagesShift++, parsedResponse.imagesNames[newImagesHrefs.indexOf(it)])
+                }
+            }
+
+            isBottomReached = parsedResponse.isBottomReached
+
+            nextHref = parsedResponse.nextHref
+
+            fillLikeFlags()
+
+            activity?.runOnUiThread {
+
+                isLoading = false
+
+                val oldPosition = imagesHrefs.size
+
+                recycler?.visibility =
+                        if (imagesNames.size == 0) View.GONE
+                        else View.VISIBLE
+
+
+                recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
+
+                if (refresh_layout?.visibility != View.GONE)
                     activity?.refresh_layout?.visibility = View.GONE
 
-                }
+
             }
         }
     }
 
-    fun fillLikeFlags() {
+
+    /**
+     * Like flag shows whether the image is in favorites or not
+     */
+    private fun fillLikeFlags() {
 
         val favorites = activity?.filesDir?.list()
 
@@ -119,12 +147,25 @@ abstract class NetFragment : GalleryFragment() {
             val isFavorite = favorites?.contains("${name?.replace('.', '@')}.png") == true
 
             if (i < likeFlags.size)
+
                 likeFlags[i] = isFavorite
             else
                 likeFlags.add(isFavorite)
         }
+
+
     }
 
+    override fun onActivityCreated(savedInstanceState: Bundle?) {
+        super.onActivityCreated(savedInstanceState)
+
+        (activity as MainActivity).addOnLikeListener(this)
+    }
+
+
+    /**
+     * Puts like-mark on each liked and removes one from disliked image
+     */
     override fun onLikeEvent(imageName: String?, isLiked: Boolean) {
 
         val index = imagesNames.indexOf(imageName)

@@ -6,8 +6,18 @@ import android.graphics.Bitmap
 import java.io.BufferedOutputStream
 import kotlin.concurrent.thread
 
+
+/**
+ *  This class is responsible for saving and deleting images from internal storage
+ */
 class FavoritesManager(val activity: Activity?) {
 
+    var isInProcess = false
+
+    /**
+     * Asynchronously saves to or deletes image from internal store.
+     * When process is complete, it notifies all listeners
+     */
     fun handleLikeEvent(imageName: String?, isLiked: Boolean, bitmap: Bitmap?): Boolean {
 
         if (activity == null)
@@ -19,13 +29,22 @@ class FavoritesManager(val activity: Activity?) {
 
         if (!isLiked && (favorites?.contains("$name.png") == true)) {
 
+            isInProcess = true
+
             thread {
                 activity.deleteFile("$name.png")
+
+                isInProcess = false
             }
+
+            notifyListeners(imageName, isLiked)
+
             return true
         }
 
         if (isLiked && (favorites?.contains("$name.png") != true) && bitmap != null) {
+
+            isInProcess = true
 
             thread {
 
@@ -35,10 +54,58 @@ class FavoritesManager(val activity: Activity?) {
                 out.flush()
                 out.close()
 
+                isInProcess = false
+
+                notifyListeners(imageName, isLiked)
+
             }
             return true
         }
 
         return false
+    }
+
+    /**
+     * Interface for classes which need notifications about image saving process
+     */
+    interface OnFavoriteChangedListener {
+
+        fun onFavoriteChanged(imageName: String?, isLiked: Boolean)
+    }
+
+    /**
+     * Static list of all listeners
+     */
+    companion object {
+
+        private val listeners = ArrayList<OnFavoriteChangedListener?>()
+    }
+
+
+    fun addOnFavoriteChangedListener(onFavoriteChangedListener: OnFavoriteChangedListener): Boolean {
+
+        if (listeners.contains(onFavoriteChangedListener))
+            return false
+
+        listeners.add(onFavoriteChangedListener)
+        return true
+    }
+
+    fun removeOnFavoriteChangedListener(onFavoriteChangedListener: OnFavoriteChangedListener): Boolean {
+
+        if (!listeners.contains(onFavoriteChangedListener))
+            return false
+
+        listeners.remove(onFavoriteChangedListener)
+        return true
+    }
+
+    /**
+     *  Method for notifying all listeners
+     */
+    fun notifyListeners(imageName: String?, isLiked: Boolean) {
+        for (listener in listeners) {
+            listener?.onFavoriteChanged(imageName, isLiked)
+        }
     }
 }
