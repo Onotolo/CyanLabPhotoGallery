@@ -1,61 +1,87 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.view
 
-import android.content.Context
-import android.graphics.Bitmap
 import android.graphics.Point
 import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import com.squareup.picasso.MemoryPolicy
 import com.squareup.picasso.Picasso
 import comonotolo.httpsgithub.cyanlabphotogallery.R
-import comonotolo.httpsgithub.cyanlabphotogallery.activities.MainActivity
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.GalleryFragment
 import java.io.File
 
-class GalleryAdapter(private val imagesHrefs: List<String?>, val  activity: MainActivity): RecyclerView.Adapter<ImageHolder>() {
 
-    var width = -1
+/**
+ *  RecyclerView.Adapter inheritor that fills recycler with views with images
+ */
+class GalleryAdapter(private val imagesHrefs: List<String?>, private val imagesNames: ArrayList<String?>, val spanCount: Int, private val fragment: GalleryFragment) : RecyclerView.Adapter<ImageHolder>() {
+
+    var width: Int
+
+    private val dirPath = fragment.activity?.filesDir?.absolutePath
 
     init {
         val size = Point()
-        activity.windowManager.defaultDisplay.getSize(size)
-        width = size.x / 2
+
+        fragment.activity?.windowManager?.defaultDisplay?.getSize(size)
+
+        width = size.x
+
     }
+
+    var height = width / spanCount
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ImageHolder {
 
         val imageView = LayoutInflater.from(parent.context).inflate(R.layout.image_holder, parent, false)
 
-        imageView.layoutParams.height = (width * 3)/4
+        imageView.layoutParams.height = width / spanCount
 
-        return ImageHolder(activity, imageView)
+        return ImageHolder(fragment, imageView)
     }
 
     override fun getItemCount(): Int {
-        return imagesHrefs.size
+
+        return when (fragment.mode) {
+
+            GalleryFragment.MODE_FAVORITES -> imagesNames.size
+
+            else -> imagesHrefs.size
+        }
     }
 
     override fun onBindViewHolder(holder: ImageHolder, position: Int) {
 
-        val favorites = activity.filesDir.list()
+        val favorites = fragment.activity?.filesDir?.list()
 
-        when(MainActivity.mode){
-            MainActivity.MODE_FAVORITES -> {
-                Picasso.get().load(File("${activity.filesDir.absolutePath}/${imagesHrefs[position]}@small.png")).into(holder.image)
-            }
-            else -> {
-                if (!favorites.contains("${imagesHrefs[position]?.replace('/', '@')}.png")) {
-                    Picasso.get().load("${imagesHrefs[position]}_L").centerCrop().resize(width, (width * 3)/4).memoryPolicy(MemoryPolicy.NO_STORE).into(holder.image)
-                }else
-                    Picasso.get().load(File("${activity.filesDir.absolutePath}/${imagesHrefs[position]?.replace('/','@')}@small.png")).into(holder.image)
-            }
-        }
+        val fileName = "${imagesNames[position]?.replace('.', '@')}.png"
 
-        if (MainActivity.mode != MainActivity.MODE_FAVORITES)
-            holder.like.visibility = if (MainActivity.likeFlags[position]) View.VISIBLE else View.GONE
-        else
+
+        /**
+         * If image is in Favorites, it wont be downloaded from net, but directly from internal storage
+         */
+        if (!(fragment.mode == GalleryFragment.MODE_FAVORITES || favorites?.contains(fileName) == true)) {
+
+            Picasso.get().load("${imagesHrefs[position]}_L").apply {
+                centerCrop()
+                resize(height, height)
+                into(holder.image)
+            }
+        } else
+            Picasso.get().load(File("$dirPath/$fileName")).apply {
+                resize(height, height)
+                centerCrop()
+                into(holder.image)
+            }
+
+
+        if (fragment.mode != GalleryFragment.MODE_FAVORITES) {
+
+            holder.like.alpha = 1f
+            holder.like.scaleX = 1f
+            holder.like.scaleY = 1f
+            holder.like.visibility = if (fragment.likeFlags[position]) View.VISIBLE else View.GONE
+        } else
             holder.like.visibility = View.GONE
 
     }

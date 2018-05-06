@@ -2,169 +2,152 @@ package comonotolo.httpsgithub.cyanlabphotogallery.activities
 
 import android.animation.Animator
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
-import android.support.constraint.ConstraintLayout
-import android.support.design.widget.CoordinatorLayout
+import android.support.v4.app.Fragment
+import android.support.v4.app.FragmentManager
+import android.support.v4.app.FragmentStatePagerAdapter
+import android.support.v4.view.ViewPager
 import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v4.view.animation.LinearOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
-import android.view.*
-import android.widget.ImageView
-import com.squareup.picasso.Picasso
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
 import comonotolo.httpsgithub.cyanlabphotogallery.R
-import kotlinx.android.synthetic.main.activity_image.*
-import java.io.*
-import kotlin.concurrent.thread
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.ImageFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
+import kotlinx.android.synthetic.main.activity_images.*
+import java.io.File
 
-class ImageActivity : AppCompatActivity(), View.OnClickListener {
-
-    override fun onClick(p0: View?) {
-        if (p0?.id == R.id.parent){
-            prepareToDie()
-        }
-    }
+/**
+ * Activity, that allows user to view pictures separately
+ * Uses View Pager with FragmentStatePagerAdapter, presenting each image on separate fragment
+ *
+ * Here and throughout all application the terms Like Event and Favorite Event are equal and refer to user's adding or removing picture from Favorites*/
+class ImageActivity : AppCompatActivity() {
 
     companion object {
-        val INTENT_EXTRA_IS_FAVORITE = "is Favorite"
+        const val INTENT_EXTRA_IS_FAVORITES = "is Favorites"
     }
 
-    var imageHref: String? = null
+    /**
+     * Position of currently visible image
+     */
+    private var imagePosition = -1
 
-    var isFavorite = false
+    // Some kind of stack holding all like events occurred during activity's life
+    private val likesStack = ArrayList<Boolean>()
+    private val imagesNamesStack = ArrayList<String?>()
 
-    var image: Bitmap? = null
+    lateinit var imagesHrefs: ArrayList<String?>
+    lateinit var imagesNames: ArrayList<String?>
+    lateinit var likes: BooleanArray
+
+    /**
+     * List of alive fragments in the View Pager.
+     *
+     * It is needed when activity finishes and we need to get like events from these fragments
+     * as like events are usually handled from fragment to activity when user proceeds through images and fragment is destroyed by FragmentStatePagerAdapter.
+     *
+     *  If fragment is destroyed because of user's going further through images, it will be removed from this list.
+     */
+    val aliveFragments = ArrayList<ImageFragment>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
 
-        setContentView(R.layout.activity_image)
+        setContentView(R.layout.activity_images)
 
-        imageHref = intent.getStringExtra(MainActivity.INTENT_EXTRA_IMAGE_HREF)
+        imagesHrefs = intent.getStringArrayListExtra(MainActivity.INTENT_EXTRA_IMAGES_HREFS)
+        imagesNames = intent.getStringArrayListExtra(MainActivity.INTENT_EXTRA_IMAGES_NAMES)
+        imagePosition = intent.getIntExtra(MainActivity.INTENT_EXTRA_POSITION, 0)
+        likes = intent.getBooleanArrayExtra(MainActivity.INTENT_EXTRA_LIKES)
 
-        val imageView = findViewById<ImageView>(R.id.image_place)
+        supportActionBar?.title = imagesNames[imagePosition]
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        findViewById<ConstraintLayout>(R.id.parent).setOnClickListener(this)
+        pager.adapter = ImagesAdapter(supportFragmentManager)
 
-        val favoritesHrefs = filesDir.list()
+        pager.addOnPageChangeListener(object : ViewPager.OnPageChangeListener {
 
-        if (MainActivity.mode != MainActivity.MODE_FAVORITES)
-            supportActionBar?.title = MainActivity.imagesNames[MainActivity.imagePosition]
+            override fun onPageScrollStateChanged(state: Int) {}
 
-        if (!favoritesHrefs.contains("${imageHref?.replace('/', '@')}.png")) {
+            override fun onPageScrolled(position: Int, positionOffset: Float, positionOffsetPixels: Int) {}
 
-            Picasso.get().load( "${imageHref}_XXL" ).into(imageView)
-
-            isFavorite = false
-
-        }else {
-
-            Picasso.get().load( File("${filesDir.absolutePath}/${imageHref?.replace('/', '@')}.png")).into(imageView)
-
-            isFavorite  = true
-
-        }
-
-        actionBar?.setHomeButtonEnabled(true)
-
-        val detector = GestureDetector(this, OnDoubleClickListener(this))
-
-        imageView.setOnTouchListener { view, motionEvent ->
-
-            detector.onTouchEvent(motionEvent)
-
-            true
-        }
-
-    }
-
-    class OnDoubleClickListener(val activity: ImageActivity): GestureDetector.SimpleOnGestureListener(){
-
-        override fun onDoubleTap(e: MotionEvent?): Boolean {
-
-            if (!activity.isFavorite){
-
-                activity.downloadLiked()
-            } else{
-                activity.dislike()
+            override fun onPageSelected(position: Int) {
+                supportActionBar?.title = imagesNames[position]
+                invalidateOptionsMenu()
             }
 
-            return super.onDoubleTap(e)
+        })
+
+        pager.currentItem = imagePosition
+
+    }
+
+    inner class ImagesAdapter(fm: FragmentManager) : FragmentStatePagerAdapter(fm) {
+
+        override fun getItem(position: Int): Fragment {
+
+            val fragment = ImageFragment
+                    .getNewInstance(if (imagesNames.size > position) imagesNames[position] else null
+                            , if (imagesHrefs.size > position) imagesHrefs[position] else null, position
+                    )
+
+            if (!aliveFragments.contains(fragment))
+
+            // Adding new fragment to list.
+                aliveFragments.add(fragment)
+
+            return fragment
         }
 
-        override fun onFling(e1: MotionEvent?, e2: MotionEvent?, velocityX: Float, velocityY: Float): Boolean {
+        override fun getCount(): Int = imagesNames.size
 
-            val y2 = e2?.y
-            val y1 = e1?.y
+    }
 
-            if (y2 != null && y1 != null && y1 - y2 > 100){
 
-                activity.image_place.animate().translationY(-1000f).setDuration(195).alpha(0.2f).setListener(RemoveAnimationListener(activity)).start()
+    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
 
+        //Refreshing like icon state due to picture
+        menu?.getItem(0)?.setIcon(
+                if (likes[pager.currentItem]) {
+                    R.drawable.ic_favorite_dark_36dp
+                } else R.drawable.ic_favorite_border_dark_36dp)
+
+        return true
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+
+        menuInflater.inflate(R.menu.activity_image_menu, menu)
+
+        return super.onCreateOptionsMenu(menu)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+
+        when (item?.itemId) {
+
+            R.id.menu_item_like -> {
+
+                animateLike(!likes[pager.currentItem])
             }
-
-            return super.onFling(e1, e2, velocityX, velocityY)
         }
 
-
-
+        return super.onOptionsItemSelected(item)
     }
 
-    class RemoveAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
-        override fun onAnimationRepeat(p0: Animator?) {
-        }
+    fun animateLike(isLiked: Boolean?) {
 
-        override fun onAnimationEnd(p0: Animator?) {
-            activity.prepareToDie()
-        }
+        likes[pager.currentItem] = isLiked == true
 
-        override fun onAnimationCancel(p0: Animator?) {
+        invalidateOptionsMenu()
 
-        }
-
-        override fun onAnimationStart(p0: Animator?) {
-
-        }
-
-    }
-
-    fun downloadLiked(){
-        val href = imageHref
-
-        val image = (image_place.drawable as BitmapDrawable).bitmap
-
-        if (href != null && image != null){
-
-            val smallImage = MainActivity.bitmapAtPosition
-
-            thread {
-                val out = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}.png", Context.MODE_PRIVATE))
-
-                image.compress(Bitmap.CompressFormat.PNG, 100, out)
-                out.flush()
-                out.close()
-
-                val outSmall = BufferedOutputStream(openFileOutput("${href.replace('/', '@')}@small.png", Context.MODE_PRIVATE))
-
-                smallImage?.compress(Bitmap.CompressFormat.PNG, 100, outSmall)
-                outSmall.flush()
-                outSmall.close()
-            }
-
-            animateLike(true)
-
-            isFavorite = true
-
-            invalidateOptionsMenu()
-        }
-    }
-
-    fun animateLike(isLiked: Boolean?){
-
-        like.setImageResource( if (isLiked == true) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+        like.setImageResource(if (isLiked == true) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
 
         like.visibility = View.VISIBLE
 
@@ -175,35 +158,18 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
 
         like.animate()
                 .alpha(1f)
-                .scaleX(3f).scaleY(3f)
+                .scaleX(2f).scaleY(2f)
                 .setInterpolator(FastOutSlowInInterpolator())
                 .setDuration(225)
-                .setListener(LikeAnimationListener(this))
+                .setListener(LikeAnimationListener())
                 .start()
     }
 
-    fun dislike(){
-
-        isFavorite = false
-
-        animateLike(false)
-
-        thread {
-            deleteFile("${imageHref?.replace('/', '@')}.png")
-            deleteFile("${imageHref?.replace('/', '@')}@small.png")
-        }
-
-        invalidateOptionsMenu()
-
-    }
-
-    class LikeAnimationListener(val activity: ImageActivity): Animator.AnimatorListener{
-        override fun onAnimationRepeat(p0: Animator?) {
-
-        }
+    inner class LikeAnimationListener : Animator.AnimatorListener {
+        override fun onAnimationRepeat(p0: Animator?) {}
 
         override fun onAnimationEnd(p0: Animator?) {
-            activity.like.animate()
+            like.animate()
                     .alpha(0f)
                     .scaleX(0f).scaleY(0f)
                     .setInterpolator(LinearOutSlowInInterpolator())
@@ -212,60 +178,82 @@ class ImageActivity : AppCompatActivity(), View.OnClickListener {
                     .start()
         }
 
-        override fun onAnimationCancel(p0: Animator?) {
+        override fun onAnimationCancel(p0: Animator?) {}
 
-        }
-
-        override fun onAnimationStart(p0: Animator?) {
-
-        }
+        override fun onAnimationStart(p0: Animator?) {}
 
     }
 
-    fun prepareToDie(){
+    override fun onSupportNavigateUp(): Boolean {
 
-        val data = Intent()
+        onBackPressed()
 
-        data.putExtra(INTENT_EXTRA_IS_FAVORITE, isFavorite)
-
-        setResult(Activity.RESULT_OK, data)
-
-        finish()
-
+        return true
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
+    override fun onDestroy() {
+        super.onDestroy()
 
-        menu?.getItem(0)?.setIcon(if (isFavorite) R.drawable.ic_favorite_white_36dp else R.drawable.ic_favorite_border_white_36dp)
+        // Clear the cache
+        val file = File(cacheDir, "sharedPic.png")
+        file.delete()
 
-        return super.onPrepareOptionsMenu(menu)
-    }
-
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-
-        menuInflater.inflate(R.menu.activity_item_menu, menu)
-
-        return super.onCreateOptionsMenu(menu)
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-
-        when (item?.itemId){
-            R.id.menu_item_like -> {
-                if (!isFavorite){
-                    downloadLiked()
-                }else
-                    dislike()
-            }
-        }
-
-        return super.onOptionsItemSelected(item)
     }
 
     override fun onBackPressed() {
 
-        prepareToDie()
+        prepareEvents()
 
         super.onBackPressed()
     }
+
+    /**
+     * Handling like event and adding it to the stack to notify MainActivity when finished
+     *
+     * Note:
+     * Like events are added not every time the user taps like icon or double taps the image,
+     * but only when fragment with image is destroyed or activity is finishing
+     * and some changes occurred: e.g. if user likes and then dislikes image, imageEvent wont be added to stack.
+     */
+    fun addLikeEvent(isLiked: Boolean?, position: Int, bitmap: Bitmap?) {
+
+        val isChanged = FavoritesManager(this).handleLikeEvent(imagesNames[position], isLiked == true, bitmap)
+
+        if (!isChanged) {
+            return
+        }
+
+        val imageName = imagesNames[position]
+
+        if (imagesNamesStack.contains(imageName)) {
+
+            likesStack[imagesNamesStack.indexOf(imageName)] = (isLiked == true)
+            return
+        }
+
+        imagesNamesStack.add(imageName)
+        likesStack.add(isLiked == true)
+
+        return
+    }
+
+    // All results are passed to calling activity via Intent
+    fun prepareEvents() {
+
+        for (fragment in aliveFragments) {
+
+            addLikeEvent(likes[fragment.position], fragment.position, fragment.image)
+        }
+
+        val data = Intent()
+
+        data.putExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES, likesStack.toBooleanArray())
+        data.putExtra(MainActivity.INTENT_EXTRA_IMAGES_NAMES, imagesNamesStack)
+
+        setResult(Activity.RESULT_OK, data)
+
+        finish()
+    }
+
+
 }

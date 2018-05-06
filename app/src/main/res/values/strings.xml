@@ -1,17 +1,17 @@
 <resources>
-    <string name="app_name">CyanLab Photo Gallery</string>
-    <string name="navigation_drawer_open">Open navigation drawer</string>
-    <string name="navigation_drawer_close">Close navigation drawer</string>
-    <string name="nav_header_title">Android Studio</string>
-    <string name="nav_header_subtitle">android.studio@android.com</string>
-    <string name="nav_header_desc">Navigation header</string>
-    <string name="action_settings">Settings</string>
-    <string name="mode_recent">recent</string>
-    <string name="mode_top">top</string>
-    <string name="mode_pod">podhistory</string>
-    <string name="mode_favorites">favorites</string>
-    <string name="tab_item_recent">Новое</string>
-    <string name="tab_item_top">Популярное</string>
-    <string name="tab_item_pod">Фото дня</string>
-    <string name="tab_item_favorites">Избранное</string>
+    <string name="app_name" translatable="false">CyanLab Photo Gallery</string>
+    <string name="mode_recent" translatable="false">recent</string>
+    <string name="mode_top" translatable="false">top</string>
+    <string name="mode_pod" translatable="false">podhistory</string>
+    <string name="mode_favorites" translatable="false">favorites</string>
+    <string name="tab_item_recent">Recent</string>
+    <string name="tab_item_top">Popular</string>
+    <string name="tab_item_pod">PoD</string>
+    <string name="tab_item_favorites">Favorites</string>
+    <string name="menu_item_like">Add Favorite</string>
+
+    <string name="fav_info_1">Seems like you have not added any pictures to favorites so far</string>
+    <string name="fav_info_2">You can do it in a several ways:</string>
+    <string name="fab_info_3">Double tap picture in grid or when you preview it </string>
+    <string name="fab_info_4">Tap on Add Favorite icon during the preview </string>
 </resources>

@@ -1,265 +1,334 @@
 package comonotolo.httpsgithub.cyanlabphotogallery.activities
 
+import android.animation.Animator
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Point
-import android.net.ConnectivityManager
-import android.net.Network
+import android.content.res.Configuration
 import android.os.Bundle
-import android.support.design.widget.NavigationView
-import android.support.design.widget.Snackbar
+import android.support.design.widget.AppBarLayout
 import android.support.design.widget.TabLayout
-import android.support.v4.view.GravityCompat
-import android.support.v7.app.ActionBarDrawerToggle
+import android.support.v4.app.Fragment
+import android.support.v4.app.FragmentManager
+import android.support.v4.app.FragmentPagerAdapter
+import android.support.v4.view.ViewPager
+import android.support.v4.view.animation.FastOutLinearInInterpolator
+import android.support.v4.view.animation.FastOutSlowInInterpolator
 import android.support.v7.app.AppCompatActivity
 import android.support.v7.widget.GridLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import com.squareup.picasso.Picasso
+import android.view.ViewPropertyAnimator
 import comonotolo.httpsgithub.cyanlabphotogallery.R
-import comonotolo.httpsgithub.cyanlabphotogallery.network.URLResponseParser
-import comonotolo.httpsgithub.cyanlabphotogallery.view.GalleryAdapter
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.FavoriteFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.GalleryFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.RecentFragment
+import comonotolo.httpsgithub.cyanlabphotogallery.fragments.TopFragment
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.app_bar_main.*
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.io.IOException
-import kotlin.concurrent.thread
 
 
-class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener, TabLayout.OnTabSelectedListener {
-
-    override fun onTabReselected(tab: TabLayout.Tab?) {
-    }
-
-    override fun onTabUnselected(tab: TabLayout.Tab?) {
-
-    }
+/**
+ *  Application's main activity, which contains {@link android.support.v4.view.ViewPager}
+ *  with three different fragments {@link import android.support.v4.app.Fragment}
+ */
+class MainActivity : AppCompatActivity() {
 
     companion object {
 
-        val imagesNames = ArrayList<String?>()
-        val imagesHrefs = ArrayList<String?>()
-        val likeFlags = ArrayList<Boolean>()
+        const val INTENT_EXTRA_POSITION = "Image position"
+        const val INTENT_EXTRA_IMAGES_NAMES = "Images names"
+        const val INTENT_EXTRA_IMAGES_HREFS = "Images hrefs"
+        const val INTENT_EXTRA_LIKES = "Images likes"
 
-        val MODE_RECENT = R.string.mode_recent
-        val MODE_TOP = R.string.mode_top
-        val MODE_FAVORITES = R.string.mode_favorites
-
-        val INTENT_EXTRA_IMAGE_HREF = "Image href"
-
-        var imagePosition = 0
-        var bitmapAtPosition: Bitmap? = null
-
-        var mode = MainActivity.MODE_RECENT
-
-        val REQUEST_CODE_SHOW = 1
-    }
-
-    override fun onTabSelected(tab: TabLayout.Tab?) {
-
-        val position = tab?.position
-
-        mode = when (position){
-            0 -> MODE_RECENT
-            1 -> MODE_TOP
-            2 -> MODE_FAVORITES
-            else -> MODE_RECENT
-        }
-
-        imagesNames.removeAll(imagesNames)
-        imagesHrefs.removeAll(imagesHrefs)
-        likeFlags.removeAll(likeFlags)
-        limit = 20
-
-        nextHref = null
-
-        recycler?.adapter?.notifyDataSetChanged()
-
-        when (position){
-            2 -> loadFavorites()
-            else -> loadImagesFromNet()
-        }
+        const val REQUEST_CODE_SHOW = 1
 
     }
 
-    var nextHref: String? = null
+    private val tabListener = TabListener()
 
-    var recycler: RecyclerView? = null
+    private val pageListener = PageListener()
 
-    var limit = 20
+    /**
+     *  List of listeners, each of which will be notified if like event occurs
+     */
+    private val onLikeListeners = ArrayList<OnLikeListener>()
 
-    var spanCount = 2
+    fun addOnLikeListener(listener: OnLikeListener): Boolean =
+            onLikeListeners.add(listener)
 
-    fun defaultURL() =
-            "http://api-fotki.yandex.ru/api/${resources.getString(mode)}/?limit=$limit"
+    fun removeOnLikeListener(listener: OnLikeListener): Boolean =
+            onLikeListeners.remove(listener)
 
-    var isLoading = false
-    var isBottomReached = false
+
+    /**
+     * References to fragments
+     */
+    private lateinit var recentFragment: RecentFragment
+    private lateinit var topFragment: TopFragment
+    private lateinit var favoriteFragment: FavoriteFragment
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         setSupportActionBar(toolbar)
 
-        fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show()
+        (toolbar.layoutParams as AppBarLayout.LayoutParams).scrollFlags = when (resources.configuration.orientation) {
+            Configuration.ORIENTATION_PORTRAIT -> {
+                AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL.or(AppBarLayout.LayoutParams.SCROLL_FLAG_ENTER_ALWAYS)
+            }
+            else -> {
+                app_bar.setExpanded(false, false)
+                AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL
+            }
         }
-
-        val toggle = ActionBarDrawerToggle(
-                this, drawer_layout, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
-        drawer_layout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        nav_view.setNavigationItemSelectedListener(this)
 
         val tabLayout = findViewById<TabLayout>(R.id.tab_layout)
 
-        tabLayout.addOnTabSelectedListener(this)
+        tabLayout.addOnTabSelectedListener(tabListener)
 
-        prepareRecycler()
+        // Just to make sure...
+        System.setProperty("http.keepAlive", "true")
 
-        recycler?.scheduleLayoutAnimation()
+        view_pager.setOnPageChangeListener(pageListener)
 
-        loadImagesFromNet()
+        findOrCreateFragments()
+
+        if (view_pager.adapter == null) {
+            view_pager.adapter = GalleryPagerAdapter(supportFragmentManager)
+            view_pager.offscreenPageLimit = 2
+        }
 
     }
 
-    fun loadFavorites(){
+    /**
+     *  Method that looks for already existing
+     *  GalleryFragments
+     *  in FragmentManager
+     *
+     *  Keeps references to fragments up-to-dated through all activity lifecycle's changes
+     *
+     */
+    private fun findOrCreateFragments() {
 
-        recycler?.scheduleLayoutAnimation()
+        val recent = supportFragmentManager.findFragmentByTag(makeFragTag(0)) as RecentFragment?
+        recentFragment = recent ?: RecentFragment()
 
-        isLoading = true
+        val top = supportFragmentManager.findFragmentByTag(makeFragTag(1)) as TopFragment?
+        topFragment = top ?: TopFragment()
 
-        val favoritesHrefs = filesDir.list()
+        val favorites = supportFragmentManager.findFragmentByTag(makeFragTag(2)) as FavoriteFragment?
+        favoriteFragment = favorites ?: FavoriteFragment()
+    }
 
-        var count = 0
+    /**
+     *  Function for imitating tags that FragmentPagerAdapter gives to the fragments
+     *  when attaching them to activity.
+     *  @see {FragmentPagerAdapter#makeFragmentName}
+     */
+    private fun makeFragTag(position: Int): String {
+        return "android:switcher:${view_pager.id}:$position"
+    }
 
-        for (favorite in favoritesHrefs){
 
-            if (favorite.endsWith("@small.png")) {
+    /**
+     *  Adapter that attaches manages GalleryFragments to ViewPager
+     */
+    inner class GalleryPagerAdapter(fm: FragmentManager) : FragmentPagerAdapter(fm) {
 
-                imagesHrefs.add(favorite.removeSuffix("@small.png"))
+        override fun getItem(position: Int): Fragment {
 
-                count++
+            return when (position) {
+                0 -> recentFragment
+                1 -> topFragment
+                else -> favoriteFragment
+
             }
         }
 
-        recycler?.adapter?.notifyDataSetChanged()
-
+        override fun getCount(): Int {
+            return 3
+        }
 
     }
 
-    fun loadImagesFromNet(url: String? = defaultURL()){
 
-        val netInfo = (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo
-        if (netInfo != null && netInfo.isConnectedOrConnecting) {
+    /**
+     *  Class that connects ViewPager with TabLayout
+     */
+    inner class PageListener : ViewPager.SimpleOnPageChangeListener() {
 
-            if (recycler?.layoutManager?.itemCount != imagesHrefs.size)
-                return
+        override fun onPageSelected(position: Int) {
 
-            isLoading = true
+            tab_layout.getTabAt(position)?.select()
 
+        }
+    }
 
-            thread (true){
+    inner class TabListener : TabLayout.OnTabSelectedListener {
+        override fun onTabReselected(tab: TabLayout.Tab?) {
+        }
 
-                if (url.equals(defaultURL())){
-                    isBottomReached = false
-                }
+        override fun onTabUnselected(tab: TabLayout.Tab?) {
+        }
 
-                val request = Request.Builder()
-                        .get()
-                        .addHeader("Host", "api-fotki.yandex.ru")
-                        .addHeader("Connection", "keep-alive")
-                        .url(url ?: defaultURL())
-                        .tag("HTTP/1.1")
-                        .build()
+        override fun onTabSelected(tab: TabLayout.Tab?) {
 
-                val client = OkHttpClient()
+            view_pager.currentItem = tab?.position ?: 0
 
-                val response = client.newCall(request).execute()
-
-                if (!response.isSuccessful) {
-
-                    isLoading = false
-
-                    return@thread
-                }
-
-                val parsedResponse = try {
-
-                    URLResponseParser().parseResponse(response.body()?.string())
-
-                }catch (ex: IOException){
-                    isLoading = false
-
-                    return@thread
-                }
-
-                val newImagesHrefs = parsedResponse.imagesHrefs
-
-                imagesNames.addAll(parsedResponse.imagesNames)
-
-                isBottomReached = parsedResponse.isBottomReached
-
-                nextHref = parsedResponse.nextHref
-
-                fillLikeFlags(newImagesHrefs)
-
-                runOnUiThread {
-
-                    isLoading = false
-
-                    val oldPosition = imagesHrefs.size
-
-                    imagesHrefs.addAll(newImagesHrefs)
-
-                    if (!isBottomReached && limit == 20)
-                        limit = 6
-
-                    recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
-
-                }
+            val fragment = when (view_pager.currentItem) {
+                0 -> recentFragment
+                1 -> topFragment
+                else -> favoriteFragment
             }
+
+            invalidateFab(fragment)
+        }
+
+    }
+
+
+    /**
+     * Method that handles Scroll-To-Top FAB
+     * @param fragment As this method is usually called from
+     *  RecyclerView.OnChildAttachStateChangeListener#onChildViewDetachedFromWindow method,
+     *  and each of the alive GalleryFragments contains RecyclerView
+     *  that can be changed during the like events,
+     *  we need to make sure that the calling fragment is in focus
+     */
+    fun invalidateFab(fragment: GalleryFragment) {
+
+        val curFragment = when (view_pager.currentItem) {
+            0 -> recentFragment
+            1 -> topFragment
+            else -> favoriteFragment
+        }
+
+        if (curFragment != fragment) {
+            return
+        }
+
+        fab_up?.setOnClickListener {
+            fragment.recycler?.scrollToPosition(0)
+        }
+
+        val flv = (curFragment.recycler?.layoutManager as GridLayoutManager?)?.findFirstCompletelyVisibleItemPosition()
+                ?: return
+
+        if (fab_up.visibility != View.VISIBLE && flv > 7) {
+
+            animateFabVisibility(View.VISIBLE)
+
+        } else if (flv < 4) {
+
+            animateFabVisibility(View.GONE)
         }
     }
 
-    fun fillLikeFlags(newHrefs: ArrayList<String?>){
+    var isFabAnimated = false
 
-        val favorites = filesDir.list()
+    private fun animateFabVisibility(visibility: Int) {
 
-        for (href in newHrefs){
+        if (isFabAnimated) {
+            return
+        }
 
-            likeFlags.add(favorites.contains("${href?.replace('/', '@')}.png"))
+        val animation: ViewPropertyAnimator?
+
+        if (visibility == View.VISIBLE) {
+
+            fab_up.alpha = 0f
+            fab_up.translationY = 3 * fab_up.height.toFloat()
+
+            fab_up.visibility = View.VISIBLE
+
+            animation = fab_up.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+
+                    .setDuration(225)
+                    .setInterpolator(FastOutSlowInInterpolator())
+
+        } else {
+
+            animation = fab_up.animate()
+
+                    .alpha(0f)
+                    .translationY(3 * fab_up.height.toFloat())
+
+                    .setDuration(195)
+                    .setInterpolator(FastOutLinearInInterpolator())
 
         }
+
+        animation?.setListener(
+
+                object : Animator.AnimatorListener {
+
+                    override fun onAnimationRepeat(p0: Animator?) {}
+
+                    override fun onAnimationEnd(p0: Animator?) {
+
+                        if (visibility == View.GONE)
+                            fab_up.visibility = View.GONE
+
+                        fab_up.animate().setListener(null).start()
+
+                        isFabAnimated = false
+                    }
+
+                    override fun onAnimationCancel(p0: Animator?) {
+
+                        isFabAnimated = false
+                    }
+
+                    override fun onAnimationStart(p0: Animator?) {
+                        isFabAnimated = true
+                    }
+
+                })?.start()
     }
+
+
+    /**
+     * Class that requests to invalidate Scroll-To-Top FAB as user scrolls through the GalleryFragment's Recycler
+     */
+    inner class FabInvalidator(private val fragment: GalleryFragment) : RecyclerView.OnChildAttachStateChangeListener {
+
+        override fun onChildViewDetachedFromWindow(view: View?) {
+
+            invalidateFab(fragment)
+        }
+
+        override fun onChildViewAttachedToWindow(view: View?) {
+        }
+
+    }
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
 
-        when (requestCode){
+        when (requestCode) {
 
-            REQUEST_CODE_SHOW -> {
-                if (resultCode == Activity.RESULT_OK){
-                    if (mode != MODE_FAVORITES){
+            MainActivity.REQUEST_CODE_SHOW -> {
 
-                        likeFlags[imagePosition] = data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) == true
+                if (resultCode != Activity.RESULT_OK)
+                    return
 
-                        recycler?.adapter?.notifyItemChanged(imagePosition)
 
-                    }
-                    else if (data?.getBooleanExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITE, false) != true){
+                /**
+                 * Receive info about like events which occurred during image viewing.
+                 */
+                val liked = data?.getBooleanArrayExtra(ImageActivity.INTENT_EXTRA_IS_FAVORITES)
+                val imagesNames = data?.getStringArrayListExtra(INTENT_EXTRA_IMAGES_NAMES)
 
-                        imagesHrefs.removeAt(imagePosition)
+                if (liked?.size != imagesNames?.size || liked == null || imagesNames == null) {
+                    return
+                }
 
-                        recycler?.adapter?.notifyItemRemoved(imagePosition)
-                    }
+                for (i in 0 until liked.size) {
+                    handleLikeEvent(imagesNames[i], liked[i])
                 }
             }
         }
@@ -268,91 +337,54 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
 
-    fun prepareRecycler(){
+    /**
+     * Interface for classes interested in like events
+     */
+    interface OnLikeListener {
 
-        recycler = findViewById(R.id.recycler_view)
-
-        recycler?.layoutManager = GridLayoutManager(this, 2)
-
-        recycler?.adapter = GalleryAdapter(imagesHrefs, this)
-
-        recycler?.addOnChildAttachStateChangeListener(OnChildStateChangedLoader(recycler?.layoutManager as GridLayoutManager, this))
+        fun onLikeEvent(imageName: String?, isLiked: Boolean)
     }
 
-    class OnChildStateChangedLoader(val manager: GridLayoutManager, val activity: MainActivity): RecyclerView.OnChildAttachStateChangeListener{
+    /**
+     * Method that calls onLikeEvent in every interested class
+     */
+    fun handleLikeEvent(imageName: String?, isLiked: Boolean) {
 
-        override fun onChildViewDetachedFromWindow(view: View?) {
-
-            if (!activity.isLoading && !activity.isBottomReached){
-
-                val ic = manager.itemCount
-
-                val flv = manager.findLastVisibleItemPosition()
-
-                if (ic  - flv < 7){
-
-                    val nextHref = activity.nextHref
-                    activity.loadImagesFromNet(nextHref?.replace("limit=20", "limit=${activity.limit}"))
-
-                }
-            }
-
-        }
-
-        override fun onChildViewAttachedToWindow(view: View?) {
-        }
-
-    }
-
-    override fun onBackPressed() {
-        if (drawer_layout.isDrawerOpen(GravityCompat.START)) {
-            drawer_layout.closeDrawer(GravityCompat.START)
-        } else {
-            super.onBackPressed()
+        for (listener in onLikeListeners) {
+            listener.onLikeEvent(imageName, isLiked)
         }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        // Inflate the menu; this adds items to the action bar if it is present.
+
         menuInflater.inflate(R.menu.main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        when (item.itemId) {
-            R.id.action_settings -> return true
-            else -> return super.onOptionsItemSelected(item)
+
+        return when (item.itemId) {
+
+            R.id.menu_item_refresh -> {
+
+                for (i in 0 until 3) {
+
+                    val fragment = when (view_pager.currentItem) {
+                        0 -> recentFragment
+                        1 -> topFragment
+                        else -> favoriteFragment
+                    }
+
+                    if (!fragment.isLoading) {
+                        fragment.loadImages()
+                    }
+                }
+
+                true
+
+            }
+            else -> super.onOptionsItemSelected(item)
         }
-    }
-
-    override fun onNavigationItemSelected(item: MenuItem): Boolean {
-        // Handle navigation view item clicks here.
-        when (item.itemId) {
-            R.id.nav_camera -> {
-                // Handle the camera action
-            }
-            R.id.nav_gallery -> {
-
-            }
-            R.id.nav_slideshow -> {
-
-            }
-            R.id.nav_manage -> {
-
-            }
-            R.id.nav_share -> {
-
-            }
-            R.id.nav_send -> {
-
-            }
-        }
-
-        drawer_layout.closeDrawer(GravityCompat.START)
-        return true
     }
 
 }
