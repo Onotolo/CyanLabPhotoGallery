@@ -28,11 +28,13 @@ abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
 
         val netInfo = (activity?.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?)?.activeNetworkInfo
 
+        val refreshLayout = activity?.refresh_layout
+
         if (netInfo == null || !netInfo.isConnectedOrConnecting) {
 
             recycler?.visibility = View.GONE
 
-            if (refresh_layout?.visibility != View.GONE)
+            if (activity?.refresh_layout?.visibility != View.GONE)
                 activity?.refresh_layout?.visibility = View.GONE
 
             return
@@ -42,13 +44,13 @@ abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
 
 
 
-        if (refresh_layout?.visibility != View.VISIBLE) {
+        if (refreshLayout?.visibility != View.VISIBLE) {
 
-            refresh_layout?.visibility = View.VISIBLE
+            refreshLayout?.visibility = View.VISIBLE
 
-            refresh_layout?.alpha = 0f
+            refreshLayout?.alpha = 0f
 
-            refresh_layout?.animate()?.alpha(1f)?.setDuration(225)?.start()
+            refreshLayout?.animate()?.alpha(1f)?.setDuration(225)?.start()
         }
 
         if (url.equals(defaultURL())) {
@@ -72,8 +74,8 @@ abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
                 isLoading = false
 
                 activity?.runOnUiThread {
-                    if (refresh_layout?.visibility != View.GONE)
-                        activity?.refresh_layout?.visibility = View.GONE
+                    if (refreshLayout?.visibility != View.GONE)
+                        refreshLayout?.visibility = View.GONE
                 }
 
                 return@thread
@@ -87,8 +89,8 @@ abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
                 isLoading = false
 
                 activity?.runOnUiThread {
-                    if (refresh_layout?.visibility != View.GONE)
-                        activity?.refresh_layout?.visibility = View.GONE
+                    if (refreshLayout?.visibility != View.GONE)
+                        refreshLayout?.visibility = View.GONE
                 }
 
                 return@thread
@@ -124,8 +126,8 @@ abstract class NetFragment : GalleryFragment(), MainActivity.OnLikeListener {
 
                 recycler?.adapter?.notifyItemRangeInserted(oldPosition, newImagesHrefs.size)
 
-                if (refresh_layout?.visibility != View.GONE)
-                    activity?.refresh_layout?.visibility = View.GONE
+                if (refreshLayout?.visibility != View.GONE)
+                    refreshLayout?.visibility = View.GONE
 
 
             }

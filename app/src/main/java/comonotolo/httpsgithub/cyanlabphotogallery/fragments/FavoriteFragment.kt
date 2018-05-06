@@ -2,7 +2,6 @@ package comonotolo.httpsgithub.cyanlabphotogallery.fragments
 
 import android.view.View
 import comonotolo.httpsgithub.cyanlabphotogallery.model.FavoritesManager
-import kotlinx.android.synthetic.main.fragment_images.*
 import kotlin.concurrent.thread
 
 /**
@@ -89,8 +88,6 @@ class FavoriteFragment : GalleryFragment(), FavoritesManager.OnFavoriteChangedLi
     }
 
     override fun onStart() {
-
-        loadImages()
 
         FavoritesManager(activity).addOnFavoriteChangedListener(this)
 

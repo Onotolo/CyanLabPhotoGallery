@@ -5,6 +5,6 @@
     <item
         android:id="@+id/menu_item_like"
         android:icon="@drawable/ic_favorite_border_dark_36dp"
-        android:title="Add Favorite"
+        android:title="@string/menu_item_like"
         app:showAsAction="always|withText" />
 </menu>
